@@ -1,35 +1,43 @@
 {
   "expo": {
-    "name": "my-app",
-    "slug": "my-app",
+    "name": "GreenMind",
+    "slug": "GreenMind",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/icons/icon-flat.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "AIzaSyDkmrjp6MjyKqv8dZVG_IlQURzcZX8W5Dc"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/icons/icon-flat.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.ashleystars.GreenMind",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDkmrjp6MjyKqv8dZVG_IlQURzcZX8W5Dc"
+        }
+      }
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/icons/icon-flat.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/icons/icon-flat.png",
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
@@ -37,6 +45,14 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "69f88fd9-359b-42ea-a614-cd29de6ccb1b"
+      }
     }
   }
 }
+
+
