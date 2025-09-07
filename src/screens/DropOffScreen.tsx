@@ -1,3 +1,4 @@
+/*
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
@@ -37,3 +38,4 @@ const MapComponent = ({ initialRegion, markers }: MapComponentProps) => {
 };
 
 export default MapComponent;
+*/

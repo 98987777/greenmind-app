@@ -74,12 +74,7 @@ const ProfileScreen = () => {
 
         <View style={styles.menuSection}>
             <Text style={styles.sectionTitle}>App Settings</Text>
-            <TouchableOpacity style={styles.menuItem} onPress={() => handleNavigation('/language')}>
-                <Feather name="globe" size={22} color="#8A8A8E" style={styles.menuIcon} />
-                <Text style={styles.menuText}>Language</Text>
-                <Text style={styles.menuValue}>English</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => handleNavigation('/help')}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => handleNavigation('/help-and-support')}>
                 <Feather name="help-circle" size={22} color="#8A8A8E" style={styles.menuIcon} />
                 <Text style={styles.menuText}>Help & Support</Text>
                 <Feather name="chevron-right" size={22} color="#8A8A8E" />
