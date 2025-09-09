@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   SafeAreaView,
@@ -5,16 +6,15 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TouchableOpacity,
   useWindowDimensions,
   View
 } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const DashboardScreen = () => {
   const { width } = useWindowDimensions();
   const styles = createResponsiveStyles(width);
+  const router = useRouter(); // For navigation
 
   const historyItems = [
     { type: 'Plastic Bottle', time: 'Today, 10:30 AM' },
@@ -27,9 +27,6 @@ const DashboardScreen = () => {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
       <View style={styles.header}>
-        <TouchableOpacity>
-          <Feather name="menu" size={28} color="#1C1C1E" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Dashboard</Text>
         <View style={{width: 28}} />
       </View>
@@ -48,6 +45,7 @@ const DashboardScreen = () => {
                 <Text style={[styles.statChange, styles.positiveChange]}>+5%</Text>
             </View>
         </View>
+        {/* The TouchableOpacity has been replaced with a View */}
         <View style={styles.ecoPointsCard}>
             <Text style={styles.statLabel}>Eco-Points</Text>
             <Text style={styles.statValue}>890</Text>
@@ -101,7 +99,7 @@ const createResponsiveStyles = (width: number) => {
         container: { flex: 1, backgroundColor: '#FFFFFF' },
         header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
         headerTitle: { fontSize: fontScale(18), fontWeight: '600', color: '#1C1C1E' },
-        scrollContent: { padding: 20 },
+        scrollContent: { padding: 20, paddingBottom: 100 },
         sectionTitle: { fontSize: fontScale(22), fontWeight: 'bold', color: '#1C1C1E', marginBottom: 15 },
         overviewContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
         statCard: { backgroundColor: '#F7F8F9', borderRadius: 16, padding: 20, width: '48%', borderWidth: 1, borderColor: '#E8E8E8' },
@@ -129,3 +127,4 @@ const createResponsiveStyles = (width: number) => {
 }
 
 export default DashboardScreen;
+

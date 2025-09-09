@@ -1,41 +1,78 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const ScanScreen = () => {
   const [permission, requestPermission] = useCameraPermissions();
-  const [flash, setFlash] = useState<'off' | 'on'>('off');
+  const [isTorchOn, setIsTorchOn] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const cameraRef = useRef<CameraView>(null);
+  const [isCameraActive, setIsCameraActive] = useState(true); // New state to control camera mounting
+
+  // This effect now controls whether the camera is mounted or not
+  useFocusEffect(
+    useCallback(() => {
+      // When the screen comes into focus, set the camera to be active
+      setIsCameraActive(true);
+      
+      // Return a cleanup function that runs when the screen loses focus
+      return () => {
+        // When navigating away, deactivate the camera. This forces it to unmount.
+        setIsCameraActive(false);
+      };
+    }, [])
+  );
 
   useEffect(() => {
-    // Request permission when the component mounts
     if (!permission) {
       requestPermission();
     }
   }, [permission, requestPermission]);
 
-  const handleTakePhoto = () => {
-    console.log('Photo taken!');
-    // Future: Add logic to take a picture and process it
+  const handleTakePhoto = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync();
+        if (photo) {
+          router.push({ pathname: '/scan-result', params: { imageUri: photo.uri } });
+        }
+      } catch (error) {
+        console.error("Failed to take picture:", error);
+        Alert.alert("Error", "Could not take a picture.");
+      }
+    }
   };
+  
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+      return;
+    }
 
-  const handlePickImage = () => {
-    console.log('Opening image gallery...');
-    // Future: Add logic to open the device's image library
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      router.push({ pathname: '/scan-result', params: { imageUri: result.assets[0].uri } });
+    }
   };
 
   if (!permission) {
-    // Camera permissions are still loading
     return <View />;
   }
 
   if (!permission.granted) {
-    // Camera permissions are not granted yet
     return (
       <View style={styles.permissionContainer}>
         <Text style={{ textAlign: 'center', fontSize: 16, marginBottom: 20 }}>
@@ -51,31 +88,32 @@ const ScanScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <CameraView
-        style={StyleSheet.absoluteFill}
-        flash={flash}
-        facing="back"
-      />
+      
+      {/* The CameraView is now only rendered when the screen is active */}
+      {isCameraActive && (
+          <CameraView
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+              enableTorch={isTorchOn}
+              facing="back"
+          />
+      )}
       
       <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill}>
         <SafeAreaView style={[styles.flexContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
           
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-              <Feather name="chevron-left" size={28} color="#FFFFFF" />
+              <Feather name={"chevron-left"} size={28} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.centerContent}>
             <Text style={styles.title}>Waste Scan</Text>
             <Text style={styles.subtitle}>To get information on the type of waste</Text>
-
-            {/* Viewfinder */}
             <View style={styles.viewfinder} />
           </View>
 
-          {/* Footer */}
           <View style={styles.footer}>
             <TouchableOpacity style={styles.iconButton} onPress={handlePickImage}>
               <Ionicons name="image-outline" size={30} color="#FFFFFF"  />
@@ -87,9 +125,9 @@ const ScanScreen = () => {
 
             <TouchableOpacity 
               style={styles.iconButton} 
-              onPress={() => setFlash(current => (current === 'off' ? 'on' : 'off'))}
+              onPress={() => setIsTorchOn(current => !current)}
             >
-              <Ionicons name={flash === 'on' ? 'flash' : 'flash-off-outline'} size={30} color="#FFFFFF" />
+              <Ionicons name={isTorchOn ? 'flash' : 'flash-off-outline'} size={30} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -160,7 +198,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#00C851',
     borderRadius: 30,
-    backgroundColor: 'transparent', // This makes the viewfinder area clear
+    backgroundColor: 'transparent',
   },
   footer: {
     flexDirection: 'row',

@@ -32,13 +32,7 @@ export default function TabLayout() {
         }}
       />
       {/* You can add your other tabs here in the future */}
-      <Tabs.Screen
-        name="scan"
-        options={{
-          title: 'Scan',
-          tabBarIcon: ({ color }) => <Ionicons name="scan" size={24} color={color} />,
-        }}
-      />
+      
       <Tabs.Screen
         name="drop-off"
         options={{
@@ -47,10 +41,26 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="scan"
+        options={{
+          title: 'Scan',
+          tabBarIcon: ({ color }) => <Ionicons name="scan" size={24} color={color} />,
+        }}
+      />
+
+      <Tabs.Screen
       name="profile"
       options={{
         title: 'Profile',
         tabBarIcon: ({ color }) => <Feather name="user" size={24} color={color} />,
+      }}
+    />
+
+    <Tabs.Screen
+      name="redeem"
+      options={{
+        title: 'Redeem',
+        tabBarIcon: ({ color }) => <Feather name="gift" size={24} color={color} />,
       }}
     />
     </Tabs>
