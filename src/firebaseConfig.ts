@@ -1,11 +1,11 @@
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp } from 'firebase/app';
+import {
+  getReactNativePersistence,
+  initializeAuth
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// --- NEW IMPORTS for Auth Persistence ---
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
-import { getReactNativePersistence, initializeAuth } from 'firebase/auth';
-
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyA4HGqa0Ze1bz9FEG0rYWA8Ycz6-vE_hwc",
   authDomain: "greenmind-21e8f.firebaseapp.com",
@@ -16,17 +16,15 @@ const firebaseConfig = {
   measurementId: "G-ZG2K8GH8Q9"
 };
 
-// Initialize Firebase
+// Init Firebase
 const app = initializeApp(firebaseConfig);
 
-// --- THIS IS THE FIX ---
-// Initialize Firebase Auth with persistence
+// ✅ Use persistent auth with AsyncStorage
 export const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(ReactNativeAsyncStorage)
 });
 
-// Initialize other services as before
+// Firestore
 export const db = getFirestore(app);
 
 export default app;
-

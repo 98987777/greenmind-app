@@ -1,7 +1,9 @@
+import * as Google from 'expo-auth-session/providers/google';
 import { useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import React, { useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
@@ -19,13 +21,15 @@ import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { auth, db } from '../firebaseConfig';
 
-// --- THIS FUNCTION HAS BEEN MOVED TO THE TOP ---
+// This is required to close the browser window after auth
+WebBrowser.maybeCompleteAuthSession();
+
 const createResponsiveStyles = (width: number) => {
+    // ... styles remain the same
     const fontScale = (size: number) => {
         const scaleFactor = Math.min(width / 375, 1.2);
         return size * scaleFactor;
     }
-
     return StyleSheet.create({
         container: { flex: 1, backgroundColor: '#FFFFFF' },
         header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 15 },
@@ -55,12 +59,48 @@ const createResponsiveStyles = (width: number) => {
 const RegistrationScreen = () => {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const styles = createResponsiveStyles(width); // Now this works correctly
+  const styles = createResponsiveStyles(width);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mobile, setMobile] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+
+  // --- NEW: Google Auth Logic ---
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: "730432168258-li226n046n837452q1q389917m1g3g8q.apps.googleusercontent.com",
+    androidClientId: "730432168258-896m0r4hefstrv0l7ro6ututu99c9dft.apps.googleusercontent.com",
+  });
+
+  useEffect(() => {
+    if (response?.type === "success" && response.authentication?.idToken) {
+      const { idToken } = response.authentication;
+      const credential = GoogleAuthProvider.credential(idToken);
+      
+      signInWithCredential(auth, credential)
+        .then(async (userCredential) => {
+          const user = userCredential.user;
+          // Check if the user already exists in our database
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (!userDoc.exists()) {
+            // If the user is new, save their info to Firestore
+            await setDoc(doc(db, "users", user.uid), {
+              name: user.displayName || 'Google User',
+              email: user.email,
+              mobile: '', // Google sign-in doesn't provide a phone number
+              ecoPoints: 0,
+              createdAt: new Date(),
+            });
+          }
+          router.replace("/(tabs)/dashboard");
+        })
+        .catch((error) => {
+          console.error("Firebase Google sign-in error", error);
+          Alert.alert("Login Failed", "Could not sign in with Google.");
+        });
+    }
+  }, [response]);
+  // --- End of Google Auth Logic ---
 
   const handleRegistration = async () => {
     if (!name || !email || !password || !mobile) {
@@ -71,27 +111,19 @@ const RegistrationScreen = () => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      console.log('Registered new user:', user.uid);
-
       await setDoc(doc(db, "users", user.uid), {
-        name: name,
-        email: email,
-        mobile: mobile,
-        ecoPoints: 0,
-        createdAt: new Date(),
+        name, email, mobile, ecoPoints: 0, createdAt: new Date(),
       });
-
       router.replace('/(tabs)/dashboard');
-
     } catch (error: any) {
       Alert.alert("Registration Failed", error.message);
-      console.error("Firebase Registration Error:", error.message);
     }
   };
   
   const handleLogin = () => router.push('/login');
-  const handleGoogleLogin = () => console.log('Google Login pressed');
   const handleBack = () => router.canGoBack() && router.back();
+  const handleGoogleLogin = () => promptAsync();
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -145,7 +177,7 @@ const RegistrationScreen = () => {
 
         <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
             <Image 
-                source={{ uri: 'https://i.ibb.co/j82DCcR/google-logo-png-29546.png' }} 
+                source={{ uri: 'https://i.ibb.co/j82DCcR/google-logo-png-2d9a8db.png' }} 
                 style={styles.googleIcon}
             />
             <Text style={styles.googleButtonText}>Continue with Google</Text>
