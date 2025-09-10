@@ -58,9 +58,9 @@ const LoginScreen = () => {
   const styles = createResponsiveStyles(width);
 
   useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: '730432168258-li226n046n837452q1q389917m1g3g8q.apps.googleusercontent.com', // Your Web Client ID
-    });
+    // The webClientId is not needed for the native Android flow
+    // when you have the google-services.json file configured in app.json
+    GoogleSignin.configure({});
   }, []);
 
   const handleLogin = () => {
@@ -83,8 +83,7 @@ const LoginScreen = () => {
   const handleGoogleLogin = async () => {
     try {
       await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      const idToken = userInfo.idToken;
+      const { idToken } = await GoogleSignin.signIn();
 
       if (idToken) {
           const googleCredential = GoogleAuthProvider.credential(idToken);
@@ -96,7 +95,7 @@ const LoginScreen = () => {
 
     } catch (error: any) {
       console.error("Google Sign-In Error:", error);
-      Alert.alert("Google Sign-In Failed", error.message);
+      Alert.alert("Google Sign-In Failed", "An error occurred during sign-in.");
     }
   };
 

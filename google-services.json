@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "730432168258",
+    "project_id": "greenmind-21e8f",
+    "storage_bucket": "greenmind-21e8f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:730432168258:android:43f666f4685c28f7d9a8db",
+        "android_client_info": {
+          "package_name": "com.ashleystars.GreenMind"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "730432168258-896m0r4hefstrv0l7ro6ututu99c9dft.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ashleystars.GreenMind",
+            "certificate_hash": "1a02c4e6986737001378df62db5f17d572cc9740"
+          }
+        },
+        {
+          "client_id": "730432168258-a469kku57b6o8ei62po1hjunrpoef2og.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxhurXlg-qJjdUusD4_qo2pTtr-O53A_E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "730432168258-a469kku57b6o8ei62po1hjunrpoef2og.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
