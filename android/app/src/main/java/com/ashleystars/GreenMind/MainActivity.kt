@@ -1,4 +1,4 @@
-package com.ashleystars.GreenMind
+package com.ashleystars.greenmind
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

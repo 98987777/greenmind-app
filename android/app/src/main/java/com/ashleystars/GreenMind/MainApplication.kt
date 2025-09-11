@@ -1,4 +1,4 @@
-package com.ashleystars.GreenMind
+package com.ashleystars.greenmind
 
 import android.app.Application
 import android.content.res.Configuration
