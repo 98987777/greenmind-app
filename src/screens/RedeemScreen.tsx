@@ -1,7 +1,10 @@
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     FlatList,
     Image,
@@ -15,11 +18,11 @@ import {
     View,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
+import { auth, db } from '../firebaseConfig';
 
-// --- UPDATED: Mock data now includes reward type and value for functionality ---
 const rewardsData = [
-    { id: '1', title: 'Caramel Frapuccino Regular', points: 2000, company: 'Starbuck', validUntil: '30 December 2024', logo: 'https://i.ibb.co/3s7v7j2/starbucks-logo.png', type: 'voucher' as const, value: 'STARBUCKS-GREEN' },
-    { id: '2', title: 'Discount 30% all variant pizza', points: 1500, company: 'Domino\'s pizza', validUntil: '30 December 2024', logo: 'https://i.ibb.co/bJCq64v/dominos-logo.png', type: 'link' as const, value: 'https://www.dominos.com' },
+    { id: '1', title: 'Caramel Frapuccino Regular', points: 2000, company: 'Starbucks', validUntil: '30 December 2024', logo: 'https://i.ibb.co/3s7v7j2/starbucks-logo.png', type: 'voucher' as const, value: 'STARBUCKS-GREEN' },
+    { id: '2', title: 'Discount 30% all variant pizza', points: 1500, company: "Domino's pizza", validUntil: '30 December 2024', logo: 'https://i.ibb.co/bJCq64v/dominos-logo.png', type: 'link' as const, value: 'https://www.dominos.com' },
     { id: '3', title: '1 Pcs crispy chicken', points: 1000, company: 'KFC', validUntil: '30 December 2024', logo: 'https://i.ibb.co/PQtL9XJ/kfc-logo.png', type: 'voucher' as const, value: 'KFC-REWARD-01' },
     { id: '4', title: '1 Chicken bucket', points: 5000, company: 'KFC', validUntil: '30 December 2024', logo: 'https://i.ibb.co/PQtL9XJ/kfc-logo.png', type: 'voucher' as const, value: 'KFC-BUCKET-GREEN' },
 ];
@@ -30,11 +33,31 @@ type RedeemedItem = { id: string; title: string; date: string; };
 const RedeemScreen = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('Voucher');
-  const [userPoints, setUserPoints] = useState(3400);
+  const [userPoints, setUserPoints] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [rewardDetailsModalVisible, setRewardDetailsModalVisible] = useState(false);
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
   const [redeemedHistory, setRedeemedHistory] = useState<RedeemedItem[]>([]);
+
+  useEffect(() => {
+    const authUnsubscribe = onAuthStateChanged(auth, (user) => {
+        if (user) {
+            const userDocRef = doc(db, "users", user.uid);
+            const docUnsubscribe = onSnapshot(userDocRef, (doc) => {
+                if(doc.exists()) {
+                    setUserPoints(doc.data().ecoPoints || 0);
+                }
+                setLoading(false);
+            });
+            return () => docUnsubscribe();
+        } else {
+            setLoading(false);
+            router.replace('/login');
+        }
+    });
+    return () => authUnsubscribe();
+  }, []);
 
   const handleRedeemPress = (reward: Reward) => {
     if (userPoints >= reward.points) {
@@ -45,15 +68,21 @@ const RedeemScreen = () => {
     }
   };
 
-  const confirmRedemption = () => {
-    if (selectedReward) {
-      setUserPoints(userPoints - selectedReward.points);
+  const confirmRedemption = async () => {
+    const user = auth.currentUser;
+    if (selectedReward && user) {
+      const newPoints = userPoints - selectedReward.points;
+      
+      const userDocRef = doc(db, "users", user.uid);
+      await updateDoc(userDocRef, { ecoPoints: newPoints });
+
       const newHistoryItem: RedeemedItem = {
           id: `${selectedReward.id}-${Date.now()}`,
           title: selectedReward.title,
           date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
       };
       setRedeemedHistory([newHistoryItem, ...redeemedHistory]);
+
       setConfirmModalVisible(false);
       setRewardDetailsModalVisible(true);
     }
@@ -123,12 +152,19 @@ const RedeemScreen = () => {
         </View>
     </View>
   );
+  
+  if (loading) {
+    return (
+        <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#00C851" />
+        </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
-        {/* --- Modals remain the same --- */}
         <Modal
             animationType="fade"
             transparent={true}
@@ -171,14 +207,9 @@ const RedeemScreen = () => {
                 </View>
             </View>
         </Modal>
-      {/* --- End of Modals --- */}
       
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Feather name="arrow-left" size={28} color="#1C1C1E" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Redeem Voucher</Text>
-        <View style={{width: 28}} />
       </View>
 
       <View style={styles.pointsBanner}>
@@ -220,14 +251,14 @@ const RedeemScreen = () => {
             <Text style={styles.emptyText}>No expired rewards.</Text>
           </View>
       )}
-
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F7F8F9' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#E8E8E8', backgroundColor: 'white' },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' },
+    header: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#E8E8E8', backgroundColor: 'white' },
     headerTitle: { fontSize: 18, fontWeight: '600', color: '#1C1C1E' },
     pointsBanner: {
         height: 100,
@@ -277,7 +308,9 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     listContent: {
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 100
     },
     ticket: {
         flexDirection: 'row',
@@ -396,14 +429,14 @@ const styles = StyleSheet.create({
         borderColor: '#E8E8E8',
         marginRight: 10,
     },
-    confirmButton: {
-        backgroundColor: '#00C851',
-        marginLeft: 10,
-    },
     modalButtonText: {
         color: 'white',
         fontWeight: 'bold',
         fontSize: 16,
+    },
+    confirmButton: {
+        backgroundColor: '#00C851',
+        marginLeft: 10,
     },
     rewardCode: {
         fontSize: 20,
@@ -437,12 +470,11 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        paddingTop: 50,
     },
     emptyText: {
         fontSize: 16,
         color: '#8A8A8E',
-        marginTop: 40,
-        textAlign: 'center',
     },
 });
 

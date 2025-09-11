@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,13 +15,10 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-// --- THIS IS THE FIX: Corrected the typo in the import path ---
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore'; // Import onSnapshot for real-time updates
 import Feather from 'react-native-vector-icons/Feather';
 import { auth, db } from '../firebaseConfig';
 
-// UserData type remains the same
+// Define a type for our user data
 type UserData = {
     name: string;
     email: string;
@@ -27,7 +26,6 @@ type UserData = {
 };
 
 const createResponsiveStyles = (width: number) => {
-    // ... styles remain the same
     const fontScale = (size: number) => {
         const scaleFactor = Math.min(width / 375, 1.2);
         return size * scaleFactor;
@@ -82,10 +80,8 @@ const ProfileScreen = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // This outer listener checks if the user is logged in or out
     const authUnsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // User is signed in, set up a real-time listener for their data
         const userDocRef = doc(db, "users", user.uid);
         
         const docUnsubscribe = onSnapshot(userDocRef, (doc) => {
@@ -97,18 +93,15 @@ const ProfileScreen = () => {
           setLoading(false);
         });
 
-        // Return the cleanup function for the document listener
         return () => docUnsubscribe();
 
       } else {
-        // User is signed out
         setUserData(null);
         setLoading(false);
         router.replace('/login');
       }
     });
 
-    // Return the cleanup function for the auth listener
     return () => authUnsubscribe();
   }, []);
 
@@ -174,7 +167,6 @@ const ProfileScreen = () => {
             </View>
         </View>
 
-        {/* ... Menu sections remain the same ... */}
         <View style={styles.menuSection}>
             <Text style={styles.sectionTitle}>Account</Text>
             <TouchableOpacity style={styles.menuItem} onPress={() => handleNavigation('/edit-profile')}>
@@ -210,7 +202,6 @@ const ProfileScreen = () => {
                 <Feather name="chevron-right" size={22} color="#8A8A8E" />
             </TouchableOpacity>
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );

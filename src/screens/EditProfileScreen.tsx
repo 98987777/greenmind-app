@@ -1,6 +1,10 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   SafeAreaView,
   ScrollView,
@@ -13,110 +17,20 @@ import {
   View,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
-
-const EditProfileScreen = () => {
-  const router = useRouter();
-  const { width } = useWindowDimensions();
-  const styles = createResponsiveStyles(width);
-
-  // Pre-fill state with existing user data
-  const [name, setName] = useState('Sophia Green');
-  const [email, setEmail] = useState('sophia.green@example.com');
-  const [phone, setPhone] = useState('+1 123 456 7890');
-  const [dateOfBirth, setDateOfBirth] = useState('January 1, 1995'); // New state
-  const [address, setAddress] = useState('Sai Mansion, A1209, Mumbai-400989');
-
-
-  const handleSaveChanges = () => {
-    console.log('Saving changes:', { name, email, phone, dateOfBirth, address });
-    // Add logic to save data, then navigate back
-    router.back();
-  };
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Feather name="arrow-left" size={28} color="#1C1C1E" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
-        <TouchableOpacity onPress={handleSaveChanges}>
-            <Text style={styles.saveButton}>Save</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.avatarContainer}>
-            <Image 
-                source={{ uri: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }}
-                style={styles.avatar}
-            />
-            <TouchableOpacity style={styles.changePictureButton}>
-                <Text style={styles.changePictureText}>Change Picture</Text>
-            </TouchableOpacity>
-        </View>
-
-        <View style={styles.form}>
-            <Text style={styles.inputLabel}>Full Name</Text>
-            <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Enter your full name"
-            />
-
-            <Text style={styles.inputLabel}>Email</Text>
-            <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Enter your email"
-                keyboardType="email-address"
-            />
-
-            <Text style={styles.inputLabel}>Phone Number</Text>
-            <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Enter your phone number"
-                keyboardType="phone-pad"
-            />
-
-            <Text style={styles.inputLabel}>Date of Birth</Text>
-            <TextInput
-                style={styles.input}
-                value={dateOfBirth}
-                onChangeText={setDateOfBirth}
-                placeholder="Enter your date of birth"
-            />
-
-            <Text style={styles.inputLabel}>Address</Text>
-            <TextInput
-                style={[styles.input, styles.textArea]} // Use the new text area style
-                value={address}
-                onChangeText={setAddress}
-                placeholder="Enter your address"
-                multiline={true} // Allow multiple lines
-                numberOfLines={4} // Suggests a height of 4 lines for Android
-            />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-};
+import { auth, db } from '../firebaseConfig';
 
 const createResponsiveStyles = (width: number) => {
-    const fontScale = (size: number) => {
-        const scaleFactor = Math.min(width / 375, 1.2);
-        return size * scaleFactor;
-    }
-
+    const fontScale = (size: number) => Math.min(width / 375, 1.2) * size;
     return StyleSheet.create({
         container: { flex: 1, backgroundColor: '#FFFFFF' },
+        loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
         header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+        // --- THIS IS THE NEW STYLE ---
+        backButton: {
+            padding: 5,
+            backgroundColor: '#00000016',
+            borderRadius: 20,
+        },
         headerTitle: { fontSize: fontScale(18), fontWeight: '600', color: '#1C1C1E' },
         saveButton: { fontSize: fontScale(16), color: '#00C851', fontWeight: '600' },
         scrollContent: { paddingHorizontal: 20, paddingTop: 20 },
@@ -136,14 +50,113 @@ const createResponsiveStyles = (width: number) => {
             color: '#1C1C1E',
             marginBottom: 20,
         },
-        // New style for the text area
         textArea: {
-            height: 120, // Give it a larger height
-            textAlignVertical: 'top', // Align text to the top
-            paddingTop: 15, // Ensure padding is consistent
+            height: 120,
+            textAlignVertical: 'top',
+            paddingTop: 15,
         },
     });
 }
+
+const EditProfileScreen = () => {
+  const router = useRouter();
+  const { width } = useWindowDimensions();
+  const styles = createResponsiveStyles(width);
+
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setName(data.name || '');
+          setEmail(data.email || '');
+          setPhone(data.mobile || '');
+          setAddress(data.address || '');
+        }
+        setLoading(false);
+      } else {
+        router.replace('/login');
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSaveChanges = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+        Alert.alert("Error", "You are not logged in.");
+        return;
+    }
+    try {
+        const userDocRef = doc(db, "users", user.uid);
+        await updateDoc(userDocRef, {
+            name: name,
+            email: email,
+            mobile: phone,
+            address: address,
+        });
+        Alert.alert("Success", "Your profile has been updated.", [
+            { text: "OK", onPress: () => router.back() }
+        ]);
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        Alert.alert("Error", "Could not update your profile.");
+    }
+  };
+
+  if (loading) {
+    return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#00C851" /></View>;
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      
+      <View style={styles.header}>
+        {/* --- THE STYLE IS APPLIED HERE --- */}
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Feather name="arrow-left" size={28} color="#1C1C1E" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Edit Profile</Text>
+        <TouchableOpacity onPress={handleSaveChanges}>
+            <Text style={styles.saveButton}>Save</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.avatarContainer}>
+            <Image 
+                source={{ uri: 'https://i.pravatar.cc/150' }}
+                style={styles.avatar}
+            />
+            <TouchableOpacity style={styles.changePictureButton}>
+                <Text style={styles.changePictureText}>Change Picture</Text>
+            </TouchableOpacity>
+        </View>
+
+        <View style={styles.form}>
+            <Text style={styles.inputLabel}>Full Name</Text>
+            <TextInput style={styles.input} value={name} onChangeText={setName} />
+            
+            <Text style={styles.inputLabel}>Email</Text>
+            <TextInput style={styles.input} value={email} onChangeText={setEmail} keyboardType="email-address" />
+
+            <Text style={styles.inputLabel}>Phone Number</Text>
+            <TextInput style={styles.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
 
 export default EditProfileScreen;
 
