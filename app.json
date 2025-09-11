@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "GreenMind",
-    "slug": "GreenMind",
+    "slug": "greenmind",
+    "owner": "ashleystars",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icons/icon-flat.png",
@@ -20,9 +21,8 @@
         "foregroundImage": "./assets/icons/icon-flat.png",
         "backgroundColor": "#ffffff"
       },
-
       "edgeToEdgeEnabled": true,
-      "package": "com.ashleystars.GreenMind",
+      "package": "com.ashleystars.greenmind",
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyDkmrjp6MjyKqv8dZVG_IlQURzcZX8W5Dc"
@@ -44,28 +44,16 @@
           "backgroundColor": "#ffffff"
         }
       ]
-
-      
     ],
     "experiments": {
       "typedRoutes": true
     },
+    
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "69f88fd9-359b-42ea-a614-cd29de6ccb1b"
+        "projectId": "af7faf92-ba85-4c1e-9f5e-0bcfeaa6bd31"
       }
-    },
-
-    "installed":{
-      "client_id":"730432168258-896m0r4hefstrv0l7ro6ututu99c9dft.apps.googleusercontent.com",
-      "project_id":"greenmind-21e8f",
-      "auth_uri":"https://accounts.google.com/o/oauth2/auth",
-      "token_uri":"https://oauth2.googleapis.com/token",
-      "auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs"
-      }
-    
-
+    }
   }
 }
-

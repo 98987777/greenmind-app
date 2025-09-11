@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import React from 'react';
 import {
     Alert,
@@ -16,6 +17,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Progress from 'react-native-progress';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import Feather from 'react-native-vector-icons/Feather';
+import { auth, db } from '../firebaseConfig';
 
 const ScanResultScreen = () => {
   const router = useRouter();
@@ -39,17 +41,47 @@ const ScanResultScreen = () => {
     points: 10,
   };
   
-  const handleRecycle = () => {
-    Alert.alert(
-      "Success!",
-      `You have earned ${scanData.points} Eco-Points for recycling this item.`,
-      [{ text: "Awesome!", onPress: () => router.back() }]
-    );
+  // --- THIS IS THE UPDATED FUNCTION ---
+  const handleRecycle = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+        Alert.alert("Error", "You must be logged in to recycle items.");
+        return;
+    }
+
+    try {
+        // Get a reference to the user's document in Firestore
+        const userDocRef = doc(db, "users", user.uid);
+
+        // Get the current user data to find their current points
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+            const currentPoints = userDoc.data().ecoPoints || 0;
+            const newPoints = currentPoints + scanData.points;
+
+            // Update the document with the new point total
+            await updateDoc(userDocRef, {
+                ecoPoints: newPoints
+            });
+
+            // Show success message and navigate back
+            Alert.alert(
+              "Success!",
+              `You have earned ${scanData.points} Eco-Points! Your new total is ${newPoints}.`,
+              [{ text: "Awesome!", onPress: () => router.back() }]
+            );
+        } else {
+             Alert.alert("Error", "Could not find your user data.");
+        }
+    } catch (error) {
+        console.error("Error updating points:", error);
+        Alert.alert("Error", "There was a problem updating your points.");
+    }
   };
   
   // Slider Animation Logic
   const translateX = useSharedValue(0);
-  const sliderWidth = 280; // Approximate width of the slider track
+  const sliderWidth = 280; 
 
   const panGesture = Gesture.Pan()
     .onUpdate((event) => {
@@ -147,7 +179,6 @@ const ScanResultScreen = () => {
             ))}
         </View>
 
-        {/* --- THIS IS THE MOVED SLIDER --- */}
         <GestureDetector gesture={panGesture}>
             <Animated.View style={styles.sliderContainer}>
                 <Animated.View style={[styles.sliderButton, animatedStyle]}>
@@ -166,7 +197,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#FFFFFF' },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 15 },
     headerTitle: { fontSize: 18, fontWeight: '600', color: '#1C1C1E' },
-    scrollContent: { paddingBottom: 40 }, // Adjusted padding
+    scrollContent: { paddingBottom: 40 },
     scannedImage: {
         width: '100%',
         height: 300,
@@ -282,8 +313,8 @@ const styles = StyleSheet.create({
         borderRadius: 30,
         justifyContent: 'center',
         padding: 5,
-        marginHorizontal: 20, // Now uses horizontal margin
-        marginTop: 10, // Added margin top to space it from the last card
+        marginHorizontal: 20,
+        marginTop: 10,
     },
     sliderButton: {
         height: 50,
