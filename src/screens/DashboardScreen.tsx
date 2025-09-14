@@ -38,13 +38,10 @@ type ScanHistoryItem = {
 const formatHistoryTime = (date: Date) => {
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
-    
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
     const isYesterday = date.toDateString() === yesterday.toDateString();
-
     const timeString = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-
     if (isToday) return `Today, ${timeString}`;
     if (isYesterday) return `Yesterday, ${timeString}`;
     return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${timeString}`;
@@ -92,11 +89,7 @@ const createResponsiveStyles = (width: number) => {
             marginVertical: 15,
             padding: 4,
         },
-        timeRangeButton: {
-            flex: 1,
-            paddingVertical: 8,
-            borderRadius: 16,
-        },
+        timeRangeButton: { flex: 1, paddingVertical: 8, borderRadius: 16 },
         activeTimeRangeButton: {
             backgroundColor: '#FFFFFF',
             shadowColor: '#000',
@@ -105,14 +98,8 @@ const createResponsiveStyles = (width: number) => {
             shadowRadius: 2,
             elevation: 3,
         },
-        timeRangeText: {
-            textAlign: 'center',
-            fontWeight: '600',
-            color: '#8A8A8E',
-        },
-        activeTimeRangeText: {
-            color: '#00C851',
-        },
+        timeRangeText: { textAlign: 'center', fontWeight: '600', color: '#8A8A8E' },
+        activeTimeRangeText: { color: '#00C851' },
     });
 };
 
@@ -128,6 +115,7 @@ const DashboardScreen = () => {
     const [activeTimeRange, setActiveTimeRange] = useState('1M');
     const [loading, setLoading] = useState(true);
 
+    // Firebase data fetch
     useEffect(() => {
         const authUnsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -165,7 +153,8 @@ const DashboardScreen = () => {
 
         return () => authUnsubscribe();
     }, []);
-    
+
+    // Chart data for trends
     const chartData = useMemo(() => {
         const now = new Date();
         let startDate = new Date();
@@ -173,94 +162,46 @@ const DashboardScreen = () => {
         let dataPoints: number[] = [];
 
         switch (activeTimeRange) {
-            case '1D':
-                startDate.setDate(now.getDate() - 1);
-                labels = ['12AM', '6AM', '12PM', '6PM'];
-                dataPoints = Array(24).fill(0); // 24 hours
-                break;
-            case '1W':
-                startDate.setDate(now.getDate() - 7);
-                labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-                dataPoints = Array(7).fill(0); // 7 days
-                break;
-            case '1M':
-                startDate.setMonth(now.getMonth() - 1);
-                labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
-                dataPoints = Array(4).fill(0); // 4 weeks
-                break;
-            default: // All
-                labels = ['History'];
-                dataPoints = [fullScanHistory.length];
+            case '1D': startDate.setDate(now.getDate() - 1); labels = ['12AM','6AM','12PM','6PM']; dataPoints = Array(4).fill(0); break;
+            case '1W': startDate.setDate(now.getDate() - 7); labels = ['S','M','T','W','T','F','S']; dataPoints = Array(7).fill(0); break;
+            case '1M': startDate.setMonth(now.getMonth() - 1); labels = ['Week 1','Week 2','Week 3','Week 4']; dataPoints = Array(4).fill(0); break;
+            default: labels = ['History']; dataPoints = [fullScanHistory.length];
         }
 
         const filteredHistory = fullScanHistory.filter(item => item.recycledAt.toDate() >= startDate);
 
         filteredHistory.forEach(item => {
             const scanDate = item.recycledAt.toDate();
-            if (activeTimeRange === '1D') {
-                dataPoints[scanDate.getHours()]++;
-            } else if (activeTimeRange === '1W') {
-                dataPoints[scanDate.getDay()]++;
-            } else if (activeTimeRange === '1M') {
-                const diffDays = (now.getTime() - scanDate.getTime()) / (1000 * 3600 * 24);
-                const weekIndex = 3 - Math.floor(diffDays / 7);
-                if (weekIndex >= 0 && weekIndex < 4) dataPoints[weekIndex]++;
+            if (activeTimeRange === '1D') dataPoints[Math.floor(scanDate.getHours()/6)]++;
+            else if (activeTimeRange === '1W') dataPoints[scanDate.getDay()]++;
+            else if (activeTimeRange === '1M') {
+                const diffDays = (now.getTime() - scanDate.getTime()) / (1000*3600*24);
+                const weekIndex = 3 - Math.floor(diffDays/7);
+                if(weekIndex>=0 && weekIndex<4) dataPoints[weekIndex]++;
             }
         });
 
-        // For '1D', we can aggregate the 24 hours into 4 points for the labels
-        if (activeTimeRange === '1D') {
-            const aggregatedPoints = [0, 0, 0, 0];
-            for (let i = 0; i < 24; i++) {
-                if (i < 6) aggregatedPoints[0] += dataPoints[i];
-                else if (i < 12) aggregatedPoints[1] += dataPoints[i];
-                else if (i < 18) aggregatedPoints[2] += dataPoints[i];
-                else aggregatedPoints[3] += dataPoints[i];
-            }
-            dataPoints = aggregatedPoints;
-        }
-
-        return {
-            labels: labels.length > 0 ? labels : [''],
-            datasets: [{ data: dataPoints.length > 0 ? dataPoints : [0] }]
-        };
-
+        return { labels, datasets:[{ data: dataPoints }] };
     }, [activeTimeRange, fullScanHistory]);
-
 
     const handleDeleteHistoryItem = (itemId: string) => {
         const user = auth.currentUser;
         if (!user) return;
-        Alert.alert("Delete Item", "Are you sure...?", [
+        Alert.alert("Delete Item", "Are you sure you want to delete this item?", [
             { text: "Cancel", style: "cancel" },
-            {
-                text: "Delete",
-                style: "destructive",
-                onPress: async () => {
-                    try {
-                        const itemRef = doc(db, "users", user.uid, "scanHistory", itemId);
-                        await deleteDoc(itemRef);
-                    } catch {
-                        Alert.alert("Error", "Could not delete the item.");
-                    }
-                },
-            },
+            { text: "Delete", style: "destructive", onPress: async () => {
+                try { await deleteDoc(doc(db,"users",user.uid,"scanHistory",itemId)); }
+                catch { Alert.alert("Error","Could not delete the item."); }
+            }},
         ]);
     };
 
-    if (loading) {
-        return ( <View style={styles.loadingContainer}> <ActivityIndicator size="large" color="#00C851" /> </View> );
-    }
+    if(loading) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#00C851" /></View>;
 
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Dashboard</Text>
-                <View style={{ width: 28, height:30 }} />
-            </View>
-
+            <View style={styles.header}><Text style={styles.headerTitle}>Dashboard</Text><View style={{width:28,height:30}} /></View>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <Text style={styles.sectionTitle}>Overview</Text>
                 <View style={styles.overviewContainer}>
@@ -284,74 +225,52 @@ const DashboardScreen = () => {
                 <Text style={styles.sectionTitle}>Trends</Text>
                 <View style={styles.trendsCard}>
                     <Text style={styles.trendsHeader}>Items Scanned</Text>
-                    
                     <View style={styles.timeRangeContainer}>
-                        {['1D','1W', '1M', '6M', '1Y', 'All'].map(range => (
-                            <TouchableOpacity
-                                key={range}
-                                style={[styles.timeRangeButton, activeTimeRange === range && styles.activeTimeRangeButton]}
-                                onPress={() => setActiveTimeRange(range)}
-                            >
-                                <Text style={[styles.timeRangeText, activeTimeRange === range && styles.activeTimeRangeText]}>{range}</Text>
+                        {['1D','1W','1M','6M','1Y','All'].map(range => (
+                            <TouchableOpacity key={range} style={[styles.timeRangeButton, activeTimeRange===range&&styles.activeTimeRangeButton]} onPress={()=>setActiveTimeRange(range)}>
+                                <Text style={[styles.timeRangeText, activeTimeRange===range&&styles.activeTimeRangeText]}>{range}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
-
                     <LineChart
                         data={chartData}
-                        width={Dimensions.get('window').width - 80}
+                        width={Dimensions.get('window').width-80}
                         height={160}
                         chartConfig={{
-                            backgroundColor: '#F7F8F9',
-                            backgroundGradientFrom: '#F7F8F9',
-                            backgroundGradientTo: '#F7F8F9',
-                            decimalPlaces: 0,
-                            color: (opacity = 1) => `rgba(0, 200, 81, ${opacity})`,
-                            labelColor: (opacity = 1) => `rgba(138, 138, 142, ${opacity})`,
-                            propsForDots: { r: '4', strokeWidth: '1', stroke: '#00C851' },
+                            backgroundColor:'#F7F8F9',
+                            backgroundGradientFrom:'#F7F8F9',
+                            backgroundGradientTo:'#F7F8F9',
+                            decimalPlaces:0,
+                            color:(opacity=1)=>`rgba(0,200,81,${opacity})`,
+                            labelColor:(opacity=1)=>`rgba(138,138,142,${opacity})`,
+                            propsForDots:{r:'4',strokeWidth:'1',stroke:'#00C851'},
                         }}
-                        style={{ borderRadius: 16, marginVertical: 10 }}
+                        style={{borderRadius:16,marginVertical:10}}
                         bezier
                     />
-
                 </View>
 
-                 <View style={styles.sectionTitleContainer}>
+                <View style={styles.sectionTitleContainer}>
                     <Text style={styles.sectionTitle}>History</Text>
-                    {stats.totalItems > 3 && (
-                        <TouchableOpacity onPress={() => router.push('/history')}>
-                            <Text style={styles.seeAllButtonText}>See All</Text>
-                        </TouchableOpacity>
-                    )}
+                    {stats.totalItems > 3 && <TouchableOpacity onPress={()=>router.push('/history')}><Text style={styles.seeAllButtonText}>See All</Text></TouchableOpacity>}
                 </View>
 
-                {scanHistory.length > 0 ? (
-                    scanHistory.map((item) => (
-                        <View key={item.id} style={styles.historyItem}>
-                            <View style={styles.historyIconContainer}>
-                                <Ionicons name="scan" size={24} color="#00C851" />
-                            </View>
-                            <View style={styles.historyTextContainer}>
-                                <Text style={styles.historyType}>Scanned Item</Text>
-                                <Text style={styles.historyDetail}>{item.itemName}</Text>
-                            </View>
-                            <View>
-                                <Text style={styles.historyTime}>
-                                    {item.recycledAt ? formatHistoryTime(item.recycledAt.toDate()) : 'Just now'}
-                                </Text>
-                                <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteHistoryItem(item.id)}>
-                                    <Feather name="trash-2" size={20} color="#D32F2F" />
-                                </TouchableOpacity>
-                            </View>
+                {scanHistory.length>0 ? scanHistory.map(item=>(
+                    <View key={item.id} style={styles.historyItem}>
+                        <View style={styles.historyIconContainer}><Ionicons name="scan" size={24} color="#00C851" /></View>
+                        <View style={styles.historyTextContainer}><Text style={styles.historyType}>Scanned Item</Text><Text style={styles.historyDetail}>{item.itemName}</Text></View>
+                        <View>
+                            <Text style={styles.historyTime}>{item.recycledAt?.toDate? formatHistoryTime(item.recycledAt.toDate()) : 'Just now'}</Text>
+                            <TouchableOpacity style={styles.deleteButton} onPress={()=>handleDeleteHistoryItem(item.id)}>
+                                <Feather name="trash-2" size={20} color="#D32F2F" />
+                            </TouchableOpacity>
                         </View>
-                    ))
-                ) : (
-                    <Text style={styles.emptyHistoryText}>Your scan history will appear here after you recycle your first item.</Text>
-                )}
+                    </View>
+                )) : <Text style={styles.emptyHistoryText}>Your scan history will appear here after you recycle your first item.</Text>}
+
             </ScrollView>
         </SafeAreaView>
     );
 };
 
 export default DashboardScreen;
-

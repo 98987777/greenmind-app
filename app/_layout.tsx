@@ -3,10 +3,6 @@ import React from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-// Note: I have removed the i18n provider as per your previous request
-// to simplify the app. If you add it back, it should go inside
-// GestureHandlerRootView.
-
 export default function RootLayout() {
   return (
     // This GestureHandlerRootView is the required fix.
