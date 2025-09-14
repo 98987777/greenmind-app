@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, Unsubscribe } from 'firebase/auth'; // Import Unsubscribe type
 import { doc, onSnapshot } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
@@ -26,6 +26,7 @@ type UserData = {
 };
 
 const createResponsiveStyles = (width: number) => {
+    // ... styles remain the same
     const fontScale = (size: number) => {
         const scaleFactor = Math.min(width / 375, 1.2);
         return size * scaleFactor;
@@ -79,12 +80,20 @@ const ProfileScreen = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // --- THIS IS THE UPDATED LOGIC ---
   useEffect(() => {
+    let docUnsubscribe: Unsubscribe | undefined;
+
     const authUnsubscribe = onAuthStateChanged(auth, (user) => {
+      // First, clean up any existing document listener
+      if (docUnsubscribe) {
+        docUnsubscribe();
+      }
+
       if (user) {
+        // User is signed in, set up a new listener
         const userDocRef = doc(db, "users", user.uid);
-        
-        const docUnsubscribe = onSnapshot(userDocRef, (doc) => {
+        docUnsubscribe = onSnapshot(userDocRef, (doc) => {
           if (doc.exists()) {
             setUserData(doc.data() as UserData);
           } else {
@@ -92,17 +101,21 @@ const ProfileScreen = () => {
           }
           setLoading(false);
         });
-
-        return () => docUnsubscribe();
-
       } else {
+        // User is signed out
         setUserData(null);
         setLoading(false);
         router.replace('/login');
       }
     });
 
-    return () => authUnsubscribe();
+    // The main cleanup function for the effect
+    return () => {
+      authUnsubscribe();
+      if (docUnsubscribe) {
+        docUnsubscribe();
+      }
+    };
   }, []);
 
   const handleNavigation = (path: string) => {
@@ -120,9 +133,8 @@ const ProfileScreen = () => {
         { 
           text: "Logout", 
           onPress: () => {
-            auth.signOut().then(() => {
-              router.replace('/login');
-            });
+            // Just call signOut. The onAuthStateChanged listener will handle the rest.
+            auth.signOut();
           },
           style: "destructive"
         }
