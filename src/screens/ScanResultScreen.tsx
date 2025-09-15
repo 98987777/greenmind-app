@@ -11,25 +11,23 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   useWindowDimensions,
-  View,
+  View
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import Feather from 'react-native-vector-icons/Feather';
 import { auth, db, storage } from '../firebaseConfig';
 
-// Define the type for the data we expect from the AI backend
+// Type for the parsed AI result
 type AIResult = {
     name: string;
     type: string;
     biodegradability: string;
     carbonFootprint: string;
-    co2Saved: number;
-    recyclingRate: number;
     recyclingSteps: string[];
+    co2Saved: number;
     points: number;
 };
 
@@ -51,23 +49,27 @@ const ScanResultScreen = () => {
 
     const user = auth.currentUser;
     if (!user) {
-        Alert.alert("Error", "You must be logged in.");
         router.replace('/login');
         return;
     }
 
-    // 1. Get the URL of the uploaded image to display it
     const imageRef = ref(storage, `uploads/${user.uid}/${imageId}.jpg`);
-    getDownloadURL(imageRef).then(setImageUrl).catch(err => console.error("Failed to get image URL", err));
+    getDownloadURL(imageRef).then(setImageUrl);
 
-    // 2. Listen for the AI result document to appear in Firestore
     const resultDocRef = doc(db, "scanResults", `${user.uid}_${imageId}`);
     const unsubscribe = onSnapshot(resultDocRef, (doc) => {
-      if (doc.exists()) {
-        // We have a result!
-        setAiResult(doc.data().aiResult as AIResult); // Assuming the result is in a field named 'aiResult'
+      if (doc.exists() && doc.data().aiResult) {
+        try {
+          // --- THIS IS THE KEY FIX ---
+          // The result is a JSON string, so we need to parse it
+          const resultData = JSON.parse(doc.data().aiResult);
+          setAiResult(resultData);
+        } catch (e) {
+            console.error("Failed to parse AI result:", e);
+            Alert.alert("Analysis Error", "The AI returned an invalid format.");
+        }
         setLoading(false);
-        unsubscribe(); // Stop listening once we have the data
+        unsubscribe();
       }
     });
 
@@ -132,7 +134,6 @@ const ScanResultScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><Feather name="arrow-left" size={28} color="#1C1C1E" /></TouchableOpacity>
         <Text style={styles.headerTitle}>Scan Result</Text>
@@ -141,19 +142,10 @@ const ScanResultScreen = () => {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {imageUrl && <Image source={{ uri: imageUrl }} style={styles.scannedImage}/>}
-        
         {aiResult ? (
             <>
                 <Text style={styles.itemName}>{aiResult.name}</Text>
                 <Text style={styles.itemType}>Type: {aiResult.type}</Text>
-
-                <View style={styles.searchContainer}>
-                    <Feather name="search" size={20} color="#8A8A8E" style={styles.searchIcon} />
-                    <TextInput 
-                        placeholder={`Not a ${aiResult.name}? Search here`}
-                        style={styles.searchInput}
-                    />
-                </View>
 
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>Environmental Impact</Text>
@@ -178,7 +170,7 @@ const ScanResultScreen = () => {
                 </View>
             </>
         ) : (
-            <View style={styles.card}><Text style={styles.itemType}>Could not analyze image.</Text></View>
+             <View style={styles.card}><Text style={styles.itemType}>Could not analyze image.</Text></View>
         )}
       </ScrollView>
 
@@ -207,10 +199,7 @@ const styles = StyleSheet.create({
     scrollContent: { paddingBottom: 120 },
     scannedImage: { width: '100%', height: 300, borderRadius: 20, marginBottom: 20 },
     itemName: { fontSize: 28, fontWeight: 'bold', color: '#1C1C1E', textAlign: 'center' },
-    itemType: { fontSize: 14, color: '#8A8A8E', textAlign: 'center', marginBottom: 20 },
-    searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F8F9', borderRadius: 14, marginHorizontal: 20, paddingHorizontal: 15, borderWidth: 1, borderColor: '#E8E8E8', marginBottom: 25 },
-    searchIcon: { marginRight: 10 },
-    searchInput: { flex: 1, height: 50, fontSize: 15, color: '#1C1C1E' },
+    itemType: { fontSize: 14, color: '#8A8A8E', textAlign: 'center', marginBottom: 25 },
     card: { backgroundColor: '#F7F8F9', borderRadius: 16, padding: 20, marginHorizontal: 20, marginBottom: 20 },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#1C1C1E', marginBottom: 15 },
     infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
