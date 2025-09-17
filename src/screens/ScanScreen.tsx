@@ -3,6 +3,7 @@ import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore'; // ✅ added
 import { ref, uploadBytes } from 'firebase/storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -15,7 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { auth, storage } from '../firebaseConfig';
+import { auth, db, storage } from '../firebaseConfig'; // ✅ db import
 
 const extToMime: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -51,7 +52,7 @@ const ScanScreen = () => {
     if (!permission) requestPermission();
   }, [permission, requestPermission]);
 
-  // Upload to Storage then navigate to scan-result
+  // Upload to Storage + create Firestore doc + navigate
   const uploadImageAndNavigate = async (uri: string) => {
     const user = auth.currentUser;
     if (!user) {
@@ -68,15 +69,23 @@ const ScanScreen = () => {
       if (!res.ok) throw new Error(`Failed to read image: HTTP ${res.status}`);
       const blob = await res.blob();
 
-      // Use consistent path expected by rules: uploads/{uid}/...
+      // Generate unique imageId
       const imageId = `${Date.now()}`;
+
+      // Upload to Firebase Storage
       const fullPath = `uploads/${user.uid}/${imageId}.${ext}`;
       const storageRef = ref(storage, fullPath);
-
-      // IMPORTANT: pass contentType so Storage rules that check it will allow
       await uploadBytes(storageRef, blob, { contentType: mime });
 
-      // Navigate with imageId (scan-result screen already tries .jpg/.png/no-ext)
+      // Create Firestore doc with userId + imageId
+      const scanDocRef = doc(db, 'scanResults', `${user.uid}_${imageId}`);
+      await setDoc(scanDocRef, {
+        userId: user.uid,
+        imageId: imageId,
+        status: { state: 'PENDING', startTime: serverTimestamp() },
+      });
+
+      // Navigate to results screen with imageId
       router.push({ pathname: '/scan-result', params: { imageId } });
     } catch (e: any) {
       console.log('UPLOAD ERROR code:', e?.code);

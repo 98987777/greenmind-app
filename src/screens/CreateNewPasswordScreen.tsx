@@ -1,19 +1,18 @@
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Image,
+  Modal,
   SafeAreaView,
-  View,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   useWindowDimensions,
-  StatusBar,
-  Image,
-  Modal,
+  View,
 } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
 
 // This function now lives outside the component, so it can be used safely.
 const createResponsiveStyles = (width: number) => {

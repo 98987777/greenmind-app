@@ -1,3 +1,4 @@
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
@@ -13,8 +14,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
-import Ionicons from 'react-native-vector-icons/Ionicons';
 import { auth, db } from '../firebaseConfig';
 
 type ScanHistoryItem = {
@@ -176,4 +175,3 @@ const styles = StyleSheet.create({
 });
 
 export default HistoryScreen;
-

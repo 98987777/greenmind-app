@@ -1,5 +1,6 @@
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { onAuthStateChanged, Unsubscribe } from 'firebase/auth'; // Import Unsubscribe type
+import { onAuthStateChanged, Unsubscribe } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
@@ -15,22 +16,21 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
 import { auth, db } from '../firebaseConfig';
 
-// Define a type for our user data
+// ✅ Add avatarUrl to type
 type UserData = {
     name: string;
     email: string;
     ecoPoints: number;
+    avatarUrl?: string;
 };
 
 const createResponsiveStyles = (width: number) => {
-    // ... styles remain the same
     const fontScale = (size: number) => {
         const scaleFactor = Math.min(width / 375, 1.2);
         return size * scaleFactor;
-    }
+    };
 
     return StyleSheet.create({
         container: { flex: 1, backgroundColor: '#FFFFFF' },
@@ -40,6 +40,20 @@ const createResponsiveStyles = (width: number) => {
         scrollContent: { paddingHorizontal: 20, paddingBottom: 100 },
         profileHeader: { alignItems: 'center', marginVertical: 20 },
         avatar: { width: 100, height: 100, borderRadius: 50, marginBottom: 15 },
+        avatarFallback: {
+            width: 100,
+            height: 100,
+            borderRadius: 50,
+            marginBottom: 15,
+            backgroundColor: '#E0F2F1',
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        avatarInitials: {
+            fontSize: fontScale(28),
+            fontWeight: '600',
+            color: '#00695C',
+        },
         name: { fontSize: fontScale(22), fontWeight: 'bold', color: '#1C1C1E' },
         subtitle: { fontSize: fontScale(14), color: '#00C851', marginTop: 4 },
         statsContainer: { 
@@ -51,9 +65,7 @@ const createResponsiveStyles = (width: number) => {
             borderColor: '#E8E8E8', 
             marginBottom: 25 
         },
-        statBox: { 
-            alignItems: 'center',
-        },
+        statBox: { alignItems: 'center' },
         statValue: { fontSize: fontScale(18), fontWeight: 'bold', color: '#1C1C1E' },
         statLabel: { fontSize: fontScale(13), color: '#8A8A8E', marginTop: 4 },
         menuSection: { marginBottom: 15 },
@@ -70,7 +82,15 @@ const createResponsiveStyles = (width: number) => {
         },
         menuText: { flex: 1, fontSize: fontScale(15), color: '#1C1C1E', fontWeight: '500' },
     });
-}
+};
+
+// ✅ Helper to generate initials
+const getInitials = (name?: string) => {
+  if (!name) return 'GM'; // default fallback "GreenMind"
+  const parts = name.trim().split(' ');
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+};
 
 const ProfileScreen = () => {
   const router = useRouter();
@@ -80,48 +100,37 @@ const ProfileScreen = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // --- THIS IS THE UPDATED LOGIC ---
   useEffect(() => {
     let docUnsubscribe: Unsubscribe | undefined;
 
     const authUnsubscribe = onAuthStateChanged(auth, (user) => {
-      // First, clean up any existing document listener
-      if (docUnsubscribe) {
-        docUnsubscribe();
-      }
+      if (docUnsubscribe) docUnsubscribe();
 
       if (user) {
-        // User is signed in, set up a new listener
         const userDocRef = doc(db, "users", user.uid);
-        docUnsubscribe = onSnapshot(userDocRef, (doc) => {
-          if (doc.exists()) {
-            setUserData(doc.data() as UserData);
+        docUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setUserData(docSnap.data() as UserData);
           } else {
             console.log("No such user document!");
           }
           setLoading(false);
         });
       } else {
-        // User is signed out
         setUserData(null);
         setLoading(false);
         router.replace('/login');
       }
     });
 
-    // The main cleanup function for the effect
     return () => {
       authUnsubscribe();
-      if (docUnsubscribe) {
-        docUnsubscribe();
-      }
+      if (docUnsubscribe) docUnsubscribe();
     };
   }, []);
 
   const handleNavigation = (path: string) => {
-    if (path) {
-      router.push(path as never);
-    }
+    if (path) router.push(path as never);
   };
   
   const handleLogout = () => {
@@ -132,10 +141,7 @@ const ProfileScreen = () => {
         { text: "Cancel", style: "cancel" },
         { 
           text: "Logout", 
-          onPress: () => {
-            // Just call signOut. The onAuthStateChanged listener will handle the rest.
-            auth.signOut();
-          },
+          onPress: () => { auth.signOut(); },
           style: "destructive"
         }
       ]
@@ -164,10 +170,17 @@ const ProfileScreen = () => {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileHeader}>
-            <Image 
-                source={{ uri: 'https://i.pravatar.cc/150' }}
+            {/* ✅ Avatar with fallback */}
+            {userData?.avatarUrl ? (
+              <Image 
+                source={{ uri: userData.avatarUrl }}
                 style={styles.avatar}
-            />
+              />
+            ) : (
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarInitials}>{getInitials(userData?.name)}</Text>
+              </View>
+            )}
             <Text style={styles.name}>{userData?.name || 'GreenMind User'}</Text>
             <Text style={styles.subtitle}>Eco-Warrior</Text>
         </View>
@@ -220,4 +233,3 @@ const ProfileScreen = () => {
 };
 
 export default ProfileScreen;
-

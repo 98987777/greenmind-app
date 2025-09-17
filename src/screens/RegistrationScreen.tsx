@@ -1,3 +1,4 @@
+import { Feather, Ionicons } from '@expo/vector-icons';
 import * as Google from 'expo-auth-session/providers/google';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -17,8 +18,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
-import Ionicons from 'react-native-vector-icons/Ionicons';
 import { auth, db } from '../firebaseConfig';
 
 // This is required to close the browser window after auth
@@ -195,4 +194,3 @@ const RegistrationScreen = () => {
 };
 
 export default RegistrationScreen;
-

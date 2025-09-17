@@ -2,6 +2,8 @@ import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import SplashScreen from '../src/screens/SplashScreen';
 
+
+
 export default function SplashPage() {
   const router = useRouter();
 
