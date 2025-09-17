@@ -3,17 +3,17 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { collection, deleteDoc, doc, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import Feather from 'react-native-vector-icons/Feather';
@@ -240,3 +240,4 @@ const DashboardScreen = () => {
 };
 
 export default DashboardScreen;
+  
