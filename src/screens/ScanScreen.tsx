@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore'; // ✅ added
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes } from 'firebase/storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -16,7 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { auth, db, storage } from '../firebaseConfig'; // ✅ db import
+import { auth, db, storage } from '../firebaseConfig';
 
 const extToMime: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -77,15 +77,17 @@ const ScanScreen = () => {
       const storageRef = ref(storage, fullPath);
       await uploadBytes(storageRef, blob, { contentType: mime });
 
-      // Create Firestore doc with userId + imageId
-      const scanDocRef = doc(db, 'scanResults', `${user.uid}_${imageId}`);
-      await setDoc(scanDocRef, {
+      // ✅ Create Firestore doc in labeledWaste (Vision will process this)
+      const labeledWasteRef = doc(db, 'labeledWaste', `${user.uid}_${imageId}`);
+      await setDoc(labeledWasteRef, {
         userId: user.uid,
-        imageId: imageId,
-        status: { state: 'PENDING', startTime: serverTimestamp() },
+        imageId,
+        file: `gs://${storage.app.options.storageBucket}/${fullPath}`, // Vision requires GS path
+        createdAt: serverTimestamp(),
+        status: { state: 'PENDING' },
       });
 
-      // Navigate to results screen with imageId
+      // Navigate to results screen
       router.push({ pathname: '/scan-result', params: { imageId } });
     } catch (e: any) {
       console.log('UPLOAD ERROR code:', e?.code);

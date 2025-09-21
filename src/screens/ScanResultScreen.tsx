@@ -6,10 +6,8 @@ import {
   doc,
   getDoc,
   onSnapshot,
-  query,
   serverTimestamp,
   updateDoc,
-  where,
 } from 'firebase/firestore';
 import { getDownloadURL, ref } from 'firebase/storage';
 import React, { useEffect, useState } from 'react';
@@ -100,33 +98,46 @@ const ScanResultScreen = () => {
       }
     })();
 
-    // ---- 2) Query Firestore by userId + imageId ----
-    const q = query(
-      collection(db, 'scanResults'),
-      where('userId', '==', user.uid),
-      where('imageId', '==', imageId)
-    );
+    // ---- 2) Listen to Firestore doc by ID ----
+    const docId = `${user.uid}_${imageId}`;
+    const scanRef = doc(db, 'scanResults', docId);
 
     const unsub = onSnapshot(
-      q,
+      scanRef,
       (snap) => {
-        if (!snap.empty) {
-          const data = snap.docs[0].data();
+        if (snap.exists()) {
+          const data = snap.data();
           let raw: any = data.aiResult;
+
           if (raw) {
             try {
               if (typeof raw === 'string') {
-                raw = raw
-                  .replace(/^```json\s*/i, '')
-                  .replace(/```$/i, '')
-                  .trim();
-                const parsed = JSON.parse(raw);
-                normalizeAndSet(parsed);
+                // 1) Clean up Markdown fences
+                raw = raw.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+
+                // 2) Try to find JSON inside mixed text
+                const jsonMatch = raw.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                  const parsed = JSON.parse(jsonMatch[0]);
+                  normalizeAndSet(parsed);
+                } else {
+                  // fallback: plain string
+                  normalizeAndSet({
+                    name: 'Unknown',
+                    type: 'Unknown',
+                    recyclingSteps: [raw],
+                  });
+                }
               } else {
                 normalizeAndSet(raw);
               }
             } catch (e) {
               console.error('Failed to parse AI result:', e);
+              normalizeAndSet({
+                name: 'Unknown',
+                type: 'Unknown',
+                recyclingSteps: ['Could not parse result'],
+              });
             }
           }
         }
@@ -253,36 +264,70 @@ const ScanResultScreen = () => {
         )}
         {aiResult ? (
           <>
-            <Text style={styles.itemName}>{aiResult.name}</Text>
-            <Text style={styles.itemType}>Type: {aiResult.type}</Text>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Environmental Impact</Text>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Biodegradability</Text>
-                <Text style={styles.infoValue}>
-                  {aiResult.biodegradability}
+            {/* ⚠️ If Gemini failed */}
+            {aiResult.name === 'Unknown' ? (
+              <View
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: '#FFF8E1',
+                    borderColor: '#FFB300',
+                    borderWidth: 1,
+                  },
+                ]}
+              >
+                <Text style={[styles.cardTitle, { color: '#FF6F00' }]}>
+                  ⚠️ Analysis Failed
                 </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Carbon Footprint</Text>
-                <View style={styles.badgeContainer}>
-                  <Text style={styles.badgeText}>
-                    {aiResult.carbonFootprint}
+                <Text style={{ color: '#5D4037', marginBottom: 10 }}>
+                  We could not analyze this item. Please try again later.
+                </Text>
+                {aiResult.recyclingSteps?.length > 0 && (
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontStyle: 'italic',
+                      color: '#8A8A8E',
+                    }}
+                  >
+                    {aiResult.recyclingSteps[0]}
                   </Text>
-                </View>
+                )}
               </View>
-            </View>
+            ) : (
+              <>
+                <Text style={styles.itemName}>{aiResult.name}</Text>
+                <Text style={styles.itemType}>Type: {aiResult.type}</Text>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>How to Recycle</Text>
-              {aiResult.recyclingSteps.map((step, idx) => (
-                <View key={idx} style={styles.stepRow}>
-                  <Text style={styles.stepNumber}>{idx + 1}.</Text>
-                  <Text style={styles.stepText}>{step}</Text>
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>Environmental Impact</Text>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Biodegradability</Text>
+                    <Text style={styles.infoValue}>
+                      {aiResult.biodegradability}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Carbon Footprint</Text>
+                    <View style={styles.badgeContainer}>
+                      <Text style={styles.badgeText}>
+                        {aiResult.carbonFootprint}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-              ))}
-            </View>
+
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>How to Recycle</Text>
+                  {aiResult.recyclingSteps.map((step, idx) => (
+                    <View key={idx} style={styles.stepRow}>
+                      <Text style={styles.stepNumber}>{idx + 1}.</Text>
+                      <Text style={styles.stepText}>{step}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
           </>
         ) : (
           <View style={styles.card}>
@@ -291,7 +336,7 @@ const ScanResultScreen = () => {
         )}
       </ScrollView>
 
-      {aiResult && (
+      {aiResult && aiResult.name !== 'Unknown' && (
         <View style={styles.footer}>
           <GestureDetector gesture={panGesture}>
             <Animated.View style={styles.sliderContainer}>
