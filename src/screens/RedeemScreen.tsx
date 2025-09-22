@@ -4,18 +4,18 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    Linking,
-    Modal,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Linking,
+  Modal,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { auth, db } from '../firebaseConfig';
@@ -273,9 +273,9 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' },
   header: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#E8E8E8', backgroundColor: 'white' },
   headerTitle: { fontSize: 18, fontWeight: '600', color: '#1C1C1E' },
-  pointsBanner: { height: 100, backgroundColor: '#E0F2F1', marginHorizontal: 20, marginTop: 20, borderRadius: 16, padding: 20, justifyContent: 'center' },
+  pointsBanner: { height: 100, backgroundColor: '#FFF3E0', marginHorizontal: 20, marginTop: 20, borderRadius: 16, padding: 20, justifyContent: 'center' },
   bannerPointsLabel: { fontSize: 14, color: '#37474F' },
-  bannerPointsValue: { fontSize: 28, fontWeight: 'bold', color: '#00796B' },
+  bannerPointsValue: { fontSize: 28, fontWeight: 'bold', color: '#FF9800' },
   tabContainer: { flexDirection: 'row', justifyContent: 'space-around', borderBottomWidth: 1, borderBottomColor: '#E8E8E8', marginHorizontal: 20, marginTop: 20, backgroundColor: 'white' },
   tabItem: { paddingVertical: 15, alignItems: 'center', flex: 1 },
   tabText: { fontSize: 16, color: '#8A8A8E', fontWeight: '500' },

@@ -238,7 +238,8 @@ const ScanResultScreen = () => {
     transform: [{ translateX: translateX.value }],
   }));
 
-  if (loading) {
+  // ---------- UI ----------
+  if (loading || !aiResult) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#00C851" />
@@ -262,77 +263,68 @@ const ScanResultScreen = () => {
         {imageUrl && (
           <Image source={{ uri: imageUrl }} style={styles.scannedImage} />
         )}
-        {aiResult ? (
-          <>
-            {/* ⚠️ If Gemini failed */}
-            {aiResult.name === 'Unknown' ? (
-              <View
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: '#FFF8E1',
-                    borderColor: '#FFB300',
-                    borderWidth: 1,
-                  },
-                ]}
+        {aiResult.name === 'Unknown' ? (
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: '#FFF8E1',
+                borderColor: '#FFB300',
+                borderWidth: 1,
+              },
+            ]}
+          >
+            <Text style={[styles.cardTitle, { color: '#FF6F00' }]}>
+              ⚠️ Analysis Failed
+            </Text>
+            <Text style={{ color: '#5D4037', marginBottom: 10 }}>
+              We could not analyze this item. Please try again later.
+            </Text>
+            {aiResult.recyclingSteps?.length > 0 && (
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontStyle: 'italic',
+                  color: '#8A8A8E',
+                }}
               >
-                <Text style={[styles.cardTitle, { color: '#FF6F00' }]}>
-                  ⚠️ Analysis Failed
-                </Text>
-                <Text style={{ color: '#5D4037', marginBottom: 10 }}>
-                  We could not analyze this item. Please try again later.
-                </Text>
-                {aiResult.recyclingSteps?.length > 0 && (
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontStyle: 'italic',
-                      color: '#8A8A8E',
-                    }}
-                  >
-                    {aiResult.recyclingSteps[0]}
-                  </Text>
-                )}
-              </View>
-            ) : (
-              <>
-                <Text style={styles.itemName}>{aiResult.name}</Text>
-                <Text style={styles.itemType}>Type: {aiResult.type}</Text>
-
-                <View style={styles.card}>
-                  <Text style={styles.cardTitle}>Environmental Impact</Text>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Biodegradability</Text>
-                    <Text style={styles.infoValue}>
-                      {aiResult.biodegradability}
-                    </Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Carbon Footprint</Text>
-                    <View style={styles.badgeContainer}>
-                      <Text style={styles.badgeText}>
-                        {aiResult.carbonFootprint}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.card}>
-                  <Text style={styles.cardTitle}>How to Recycle</Text>
-                  {aiResult.recyclingSteps.map((step, idx) => (
-                    <View key={idx} style={styles.stepRow}>
-                      <Text style={styles.stepNumber}>{idx + 1}.</Text>
-                      <Text style={styles.stepText}>{step}</Text>
-                    </View>
-                  ))}
-                </View>
-              </>
+                {aiResult.recyclingSteps[0]}
+              </Text>
             )}
-          </>
-        ) : (
-          <View style={styles.card}>
-            <Text style={styles.itemType}>Could not analyze image.</Text>
           </View>
+        ) : (
+          <>
+            <Text style={styles.itemName}>{aiResult.name}</Text>
+            <Text style={styles.itemType}>Type: {aiResult.type}</Text>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Environmental Impact</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Biodegradability</Text>
+                <Text style={styles.infoValue}>
+                  {aiResult.biodegradability}
+                </Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Carbon Footprint</Text>
+                <View style={styles.badgeContainer}>
+                  <Text style={styles.badgeText}>
+                    {aiResult.carbonFootprint}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>How to Recycle</Text>
+              {aiResult.recyclingSteps.map((step, idx) => (
+                <View key={idx} style={styles.stepRow}>
+                  <Text style={styles.stepNumber}>{idx + 1}.</Text>
+                  <Text style={styles.stepText}>{step}</Text>
+                </View>
+              ))}
+            </View>
+          </>
         )}
       </ScrollView>
 

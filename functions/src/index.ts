@@ -72,15 +72,15 @@ export const runGeminiAnalysis = onDocumentWritten("scanResults/{docId}", async 
   // Only run when READY and no aiResult yet
   if (after.readyForGemini && !after.aiResult) {
     try {
-      // 🔮 TODO: Replace with actual Gemini call
+      // 🔮 Replace this with real Gemini call later
       const aiResult = {
-        name: "Plastic Water Bottle",
-        type: "Plastic",
-        biodegradability: "Low",
-        carbonFootprint: "Medium",
-        recyclingSteps: ["Empty bottle", "Rinse", "Remove cap"],
-        co2Saved: 0.1,
-        points: 5,
+        name: "Loading...",   // remove this demo later
+        type: "Loading...",
+        biodegradability: "Loading...",
+        carbonFootprint: "Loading...",
+        recyclingSteps: ["Loading..."],
+        co2Saved: 0,
+        points: 0,
       };
 
       await db.doc(`scanResults/${event.params.docId}`).update({
@@ -95,7 +95,7 @@ export const runGeminiAnalysis = onDocumentWritten("scanResults/{docId}", async 
     } catch (err: any) {
       logger.error("❌ Gemini analysis failed:", err);
 
-      // fallback if Gemini fails
+      // Only write result if Gemini fails
       await db.doc(`scanResults/${event.params.docId}`).update({
         aiResult: {
           name: "Unknown",

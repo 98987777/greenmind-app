@@ -1,23 +1,24 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { auth, db } from '../firebaseConfig';
 
 type ScanHistoryItem = {
-    id: string;
+    id: string;              // Firestore doc ID in user scanHistory
+    scanResultId: string;    // Reference to scanResults/{docId}
     itemName: string;
     itemType: string;
     recycledAt: {
@@ -25,26 +26,21 @@ type ScanHistoryItem = {
     };
 };
 
-// --- NEW: Helper function to format the timestamp ---
+// --- Helper: format timestamp nicely ---
 const formatHistoryTime = (date: Date) => {
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
-    
+
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
     const isYesterday = date.toDateString() === yesterday.toDateString();
 
     const timeString = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
-    if (isToday) {
-        return `Today, ${timeString}`;
-    }
-    if (isYesterday) {
-        return `Yesterday, ${timeString}`;
-    }
+    if (isToday) return `Today, ${timeString}`;
+    if (isYesterday) return `Yesterday, ${timeString}`;
     return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}, ${timeString}`;
 };
-
 
 const HistoryScreen = () => {
   const router = useRouter();
@@ -56,7 +52,7 @@ const HistoryScreen = () => {
       if (user) {
         const historyCollectionRef = collection(db, "users", user.uid, "scanHistory");
         const historyQuery = query(historyCollectionRef, orderBy("recycledAt", "desc"));
-        
+
         const historyUnsubscribe = onSnapshot(historyQuery, (snapshot) => {
             const history: ScanHistoryItem[] = snapshot.docs.map(doc => ({
                 id: doc.id,
@@ -74,8 +70,8 @@ const HistoryScreen = () => {
     });
     return () => authUnsubscribe();
   }, []);
-  
-  const handleDeleteItem = (itemId: string) => {
+
+  const handleDeleteItem = (item: ScanHistoryItem) => {
       const user = auth.currentUser;
       if (!user) return;
 
@@ -89,9 +85,20 @@ const HistoryScreen = () => {
             style: "destructive",
             onPress: async () => {
               try {
-                const itemRef = doc(db, "users", user.uid, "scanHistory", itemId);
+                // Delete from user scanHistory
+                const itemRef = doc(db, "users", user.uid, "scanHistory", item.id);
                 await deleteDoc(itemRef);
-                console.log("History item deleted successfully");
+
+                // Also delete from main scanResults collection if linked
+                if (item.scanResultId) {
+                  const scanRef = doc(db, "scanResults", item.scanResultId);
+                  const snap = await getDoc(scanRef);
+                  if (snap.exists()) {
+                    await deleteDoc(scanRef);
+                  }
+                }
+
+                console.log("History item + scanResult deleted successfully");
               } catch (error) {
                 console.error("Error deleting history item:", error);
                 Alert.alert("Error", "Could not delete the item.");
@@ -102,8 +109,20 @@ const HistoryScreen = () => {
       );
   };
 
+  const handleOpenResult = (item: ScanHistoryItem) => {
+      // Navigate to ScanResultScreen and pass scanResultId
+      if (!item.scanResultId) {
+        Alert.alert("Error", "No scan result found for this item.");
+        return;
+      }
+      router.push({
+        pathname: "/scan-result",
+        params: { docId: item.scanResultId },   // ScanResultScreen should accept docId
+      });
+  };
+
   const renderHistoryItem = ({ item }: { item: ScanHistoryItem }) => (
-    <View style={styles.historyItem}>
+    <TouchableOpacity style={styles.historyItem} onPress={() => handleOpenResult(item)}>
         <View style={styles.historyIconContainer}>
             <Ionicons name="scan" size={24} color="#00C851" />
         </View>
@@ -113,14 +132,13 @@ const HistoryScreen = () => {
         </View>
         <View style={styles.rightContainer}>
             <Text style={styles.historyTime}>
-                {/* --- UPDATED: Using the new time formatter --- */}
                 {item.recycledAt ? formatHistoryTime(item.recycledAt.toDate()) : 'Just now'}
             </Text>
-            <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteItem(item.id)}>
+            <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteItem(item)}>
                 <Feather name="trash-2" size={20} color="#D32F2F" />
             </TouchableOpacity>
         </View>
-    </View>
+    </TouchableOpacity>
   );
 
   if (loading) {
@@ -134,7 +152,7 @@ const HistoryScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
+
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Feather name="chevron-left" size={28} color="#1C1C1E" />

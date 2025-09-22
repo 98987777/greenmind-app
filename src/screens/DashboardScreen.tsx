@@ -63,7 +63,7 @@ const createResponsiveStyles = (width: number) => {
       borderBottomWidth: 1,
       borderBottomColor: '#F0F0F0',
     },
-    headerTitle: { fontSize: fontScale(25), fontWeight: '600', color: '#1C1C1E' },
+    headerTitle: { fontSize: fontScale(25), fontWeight: '600', color: '#1C1C1E', paddingLeft: 110 },
     scrollContent: { padding: 20, paddingBottom: 100 },
     sectionTitleContainer: {
       flexDirection: 'row',
@@ -323,7 +323,7 @@ const DashboardScreen = () => {
           <Text style={[styles.statChange, styles.positiveChange]}>+8%</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Trends</Text>
+        <Text style={styles.sectionTitle}>Recycled Waste</Text>
         <View style={styles.trendsCard}>
           <Text style={styles.trendsHeader}>Items Scanned</Text>
           <View style={styles.timeRangeContainer}>
