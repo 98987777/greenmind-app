@@ -1,13 +1,10 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
-import * as Google from 'expo-auth-session/providers/google';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import React, { useState } from 'react';
 import {
   Alert,
-  Image,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -20,91 +17,46 @@ import {
 } from 'react-native';
 import { auth, db } from '../firebaseConfig';
 
-// This is required to close the browser window after auth
-WebBrowser.maybeCompleteAuthSession();
-
 const createResponsiveStyles = (width: number) => {
-    // ... styles remain the same
-    const fontScale = (size: number) => {
-        const scaleFactor = Math.min(width / 375, 1.2);
-        return size * scaleFactor;
-    }
-    return StyleSheet.create({
-        container: { flex: 1, backgroundColor: '#FFFFFF' },
-        header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 15 },
-        scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
-        profileHeader: { alignItems: 'center', marginBottom: 20 },
-        title: { fontSize: fontScale(28), fontWeight: 'bold', color: '#1C1C1E', textAlign: 'center' },
-        subtitle: { fontSize: fontScale(15), color: '#8A8A8E', marginTop: 8, textAlign: 'center', maxWidth: '80%' },
-        menuSection: { marginBottom: 15 },
-        sectionTitle: { fontSize: fontScale(18), fontWeight: 'bold', color: '#1C1C1E', marginBottom: 10 },
-        inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F8F9', borderRadius: 12, paddingHorizontal: 15, marginBottom: 15, borderWidth: 1, borderColor: '#E8E8E8' },
-        menuIcon: { marginRight: 15 },
-        input: { flex: 1, height: 50, fontSize: fontScale(15), color: '#1C1C1E' },
-        registerButton: { backgroundColor: '#00C851', paddingVertical: 16, borderRadius: 30, alignItems: 'center' },
-        registerButtonText: { color: '#FFFFFF', fontSize: fontScale(16), fontWeight: 'bold' },
-        separatorContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 25 },
-        separatorLine: { flex: 1, height: 1, backgroundColor: '#E8E8E8' },
-        separatorText: { marginHorizontal: 10, color: '#8A8A8E' },
-        googleButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E8E8E8', borderRadius: 30, paddingVertical: 16 },
-        googleIcon: { width: 22, height: 22, marginRight: 12 },
-        googleButtonText: { color: '#1C1C1E', fontSize: fontScale(16), fontWeight: '600' },
-        loginContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 25 },
-        loginText: { fontSize: fontScale(16), color: '#1C1C1E' },
-        loginLink: { color: '#00C851', fontWeight: 'bold' },
-    });
-}
+  const fontScale = (size: number) => {
+    const scaleFactor = Math.min(width / 375, 1.2);
+    return size * scaleFactor;
+  };
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#FFFFFF' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 15 },
+    scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+    profileHeader: { alignItems: 'center', marginBottom: 20 },
+    title: { fontSize: fontScale(28), fontWeight: 'bold', color: '#1C1C1E', textAlign: 'center' },
+    subtitle: { fontSize: fontScale(15), color: '#8A8A8E', marginTop: 8, textAlign: 'center', maxWidth: '80%' },
+    menuSection: { marginBottom: 15 },
+    sectionTitle: { fontSize: fontScale(18), fontWeight: 'bold', color: '#1C1C1E', marginBottom: 10 },
+    inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F8F9', borderRadius: 12, paddingHorizontal: 15, marginBottom: 15, borderWidth: 1, borderColor: '#E8E8E8' },
+    menuIcon: { marginRight: 15 },
+    input: { flex: 1, height: 50, fontSize: fontScale(15), color: '#1C1C1E' },
+    registerButton: { backgroundColor: '#00C851', paddingVertical: 16, borderRadius: 30, alignItems: 'center' },
+    registerButtonText: { color: '#FFFFFF', fontSize: fontScale(16), fontWeight: 'bold' },
+    loginContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 25 },
+    loginText: { fontSize: fontScale(16), color: '#1C1C1E' },
+    loginLink: { color: '#00C851', fontWeight: 'bold' },
+  });
+};
 
 const RegistrationScreen = () => {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const styles = createResponsiveStyles(width);
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mobile, setMobile] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-  // --- NEW: Google Auth Logic ---
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: "730432168258-li226n046n837452q1q389917m1g3g8q.apps.googleusercontent.com",
-    androidClientId: "730432168258-896m0r4hefstrv0l7ro6ututu99c9dft.apps.googleusercontent.com",
-  });
-
-  useEffect(() => {
-    if (response?.type === "success" && response.authentication?.idToken) {
-      const { idToken } = response.authentication;
-      const credential = GoogleAuthProvider.credential(idToken);
-      
-      signInWithCredential(auth, credential)
-        .then(async (userCredential) => {
-          const user = userCredential.user;
-          // Check if the user already exists in our database
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (!userDoc.exists()) {
-            // If the user is new, save their info to Firestore
-            await setDoc(doc(db, "users", user.uid), {
-              name: user.displayName || 'Google User',
-              email: user.email,
-              mobile: '', // Google sign-in doesn't provide a phone number
-              ecoPoints: 0,
-              createdAt: new Date(),
-            });
-          }
-          router.replace("/(tabs)/dashboard");
-        })
-        .catch((error) => {
-          console.error("Firebase Google sign-in error", error);
-          Alert.alert("Login Failed", "Could not sign in with Google.");
-        });
-    }
-  }, [response]);
-  // --- End of Google Auth Logic ---
-
   const handleRegistration = async () => {
     if (!name || !email || !password || !mobile) {
-        Alert.alert("Missing Information", "Please fill in all required fields.");
-        return;
+      Alert.alert("Missing Information", "Please fill in all required fields.");
+      return;
     }
 
     try {
@@ -118,75 +70,88 @@ const RegistrationScreen = () => {
       Alert.alert("Registration Failed", error.message);
     }
   };
-  
+
   const handleLogin = () => router.push('/login');
   const handleBack = () => router.canGoBack() && router.back();
-  const handleGoogleLogin = () => promptAsync();
-
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
+
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack}>
           <Feather name="arrow-left" size={28} color="#1C1C1E" />
         </TouchableOpacity>
-        <View style={{width: 28}} />
+        <View style={{ width: 28 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileHeader}>
-            <Text style={styles.title}>Join with GreenMind</Text>
-            <Text style={styles.subtitle}>Sign up now and start your journey to make the world greener.</Text>
+          <Text style={styles.title}>Join with GreenMind</Text>
+          <Text style={styles.subtitle}>Sign up now and start your journey to make the world greener.</Text>
         </View>
 
         <View style={styles.menuSection}>
-            <Text style={styles.sectionTitle}>Account</Text>
-            <View style={styles.inputContainer}>
-                <Feather name="user" size={22} color="#8A8A8E" style={styles.menuIcon} />
-                <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Full Name" autoCapitalize="words" />
-            </View>
-             <View style={styles.inputContainer}>
-                <Feather name="mail" size={22} color="#8A8A8E" style={styles.menuIcon} />
-                <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Email" keyboardType="email-address" autoCapitalize="none"/>
-            </View>
-             <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={22} color="#8A8A8E" style={styles.menuIcon} />
-                <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry={!isPasswordVisible} />
-                <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
-                    <Feather name={isPasswordVisible ? 'eye-off' : 'eye'} size={22} color="#8A8A8E" />
-                </TouchableOpacity>
-            </View>
-             <View style={styles.inputContainer}>
-                <Feather name="phone" size={22} color="#8A8A8E" style={styles.menuIcon} />
-                <TextInput style={styles.input} value={mobile} onChangeText={setMobile} placeholder="Mobile Number" keyboardType="phone-pad"/>
-            </View>
+          <Text style={styles.sectionTitle}>Account</Text>
+
+          <View style={styles.inputContainer}>
+            <Feather name="user" size={22} color="#8A8A8E" style={styles.menuIcon} />
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="Full Name"
+              autoCapitalize="words"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Feather name="mail" size={22} color="#8A8A8E" style={styles.menuIcon} />
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Ionicons name="lock-closed-outline" size={22} color="#8A8A8E" style={styles.menuIcon} />
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password"
+              secureTextEntry={!isPasswordVisible}
+            />
+            <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
+              <Feather name={isPasswordVisible ? 'eye-off' : 'eye'} size={22} color="#8A8A8E" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Feather name="phone" size={22} color="#8A8A8E" style={styles.menuIcon} />
+            <TextInput
+              style={styles.input}
+              value={mobile}
+              onChangeText={setMobile}
+              placeholder="Mobile Number"
+              keyboardType="phone-pad"
+            />
+          </View>
         </View>
 
         <TouchableOpacity style={styles.registerButton} onPress={handleRegistration}>
-            <Text style={styles.registerButtonText}>Registration</Text>
-        </TouchableOpacity>
-        
-        <View style={styles.separatorContainer}>
-            <View style={styles.separatorLine} />
-            <Text style={styles.separatorText}>or continue with</Text>
-            <View style={styles.separatorLine} />
-        </View>
-
-        <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
-            <Image 
-                source={{ uri: 'https://i.ibb.co/j82DCcR/google-logo-png-2d9a8db.png' }} 
-                style={styles.googleIcon}
-            />
-            <Text style={styles.googleButtonText}>Continue with Google</Text>
+          <Text style={styles.registerButtonText}>Register</Text>
         </TouchableOpacity>
 
         <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>Already have an account? </Text>
-            <TouchableOpacity onPress={handleLogin}>
-                <Text style={[styles.loginText, styles.loginLink]}>Login here</Text>
-            </TouchableOpacity>
+          <Text style={styles.loginText}>Already have an account? </Text>
+          <TouchableOpacity onPress={handleLogin}>
+            <Text style={[styles.loginText, styles.loginLink]}>Login here</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>

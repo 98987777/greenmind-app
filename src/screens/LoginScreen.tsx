@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -16,28 +16,28 @@ import {
 import { auth } from '../firebaseConfig';
 
 const createResponsiveStyles = (width: number) => {
-    const fontScale = (size: number) => {
-        const scaleFactor = Math.min(width / 375, 1.2);
-        return size * scaleFactor;
-    }
-    return StyleSheet.create({
-        container: { flex: 1, backgroundColor: '#F7F8F9' },
-        header: { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
-        backButton: { backgroundColor: '#FFFFFF', width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E8E8E8' },
-        content: { flex: 1, paddingHorizontal: 25, paddingTop: 20 },
-        title: { fontSize: fontScale(28), fontWeight: 'bold', color: '#1C1C1E', marginBottom: 8 },
-        subtitle: { fontSize: fontScale(16), color: '#8A8A8E', marginBottom: 30 },
-        inputLabel: { fontSize: fontScale(14), color: '#1C1C1E', marginBottom: 10, fontWeight: '500' },
-        inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: '#E8E8E8', paddingHorizontal: 15, marginBottom: 20, height: 56 },
-        inputIcon: { marginRight: 10 },
-        input: { flex: 1, fontSize: fontScale(16), color: '#1C1C1E' },
-        forgotPasswordText: { fontSize: fontScale(14), color: '#8A8A8E', textAlign: 'right', marginBottom: 30, fontWeight: '500' },
-        loginButton: { backgroundColor: '#00C851', paddingVertical: 16, borderRadius: 30, alignItems: 'center', shadowColor: "#00C851", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 8, marginBottom: 40 },
-        loginButtonText: { color: '#FFFFFF', fontSize: fontScale(18), fontWeight: 'bold' },
-        registerContainer: {  flexDirection: 'row',  justifyContent: 'center',  alignItems: 'center', paddingBottom: 10, },
-        registerText: { fontSize: fontScale(16), color: '#1C1C1E' },
-        registerLink: { color: '#00C851', fontWeight: 'bold' },
-    });
+  const fontScale = (size: number) => {
+    const scaleFactor = Math.min(width / 375, 1.2);
+    return size * scaleFactor;
+  };
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#F7F8F9' },
+    header: { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
+    backButton: { backgroundColor: '#FFFFFF', width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E8E8E8' },
+    content: { flex: 1, paddingHorizontal: 25, paddingTop: 20 },
+    title: { fontSize: fontScale(28), fontWeight: 'bold', color: '#1C1C1E', marginBottom: 8 },
+    subtitle: { fontSize: fontScale(16), color: '#8A8A8E', marginBottom: 30 },
+    inputLabel: { fontSize: fontScale(14), color: '#1C1C1E', marginBottom: 10, fontWeight: '500' },
+    inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: '#E8E8E8', paddingHorizontal: 15, marginBottom: 20, height: 56 },
+    inputIcon: { marginRight: 10 },
+    input: { flex: 1, fontSize: fontScale(16), color: '#1C1C1E' },
+    forgotPasswordText: { fontSize: fontScale(14), color: '#00C851', textAlign: 'right', marginBottom: 30, fontWeight: '500' },
+    loginButton: { backgroundColor: '#00C851', paddingVertical: 16, borderRadius: 30, alignItems: 'center', shadowColor: "#00C851", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 8, marginBottom: 40 },
+    loginButtonText: { color: '#FFFFFF', fontSize: fontScale(18), fontWeight: 'bold' },
+    registerContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingBottom: 10 },
+    registerText: { fontSize: fontScale(16), color: '#1C1C1E' },
+    registerLink: { color: '#00C851', fontWeight: 'bold' },
+  });
 };
 
 const LoginScreen = () => {
@@ -65,18 +65,32 @@ const LoginScreen = () => {
       });
   };
 
-  const handleForgotPassword = () => router.push('/forgot-password');
-  const handleRegister = () => router.push('/register');
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+  const handleForgotPassword = () => {
+    if (!email) {
+      Alert.alert("Enter Email", "Please enter your email to reset password.");
+      return;
     }
+
+    sendPasswordResetEmail(auth, email)
+      .then(() => {
+        Alert.alert(
+          "Email Sent",
+          "A password reset email has been sent to your email address. Please check your inbox."
+        );
+      })
+      .catch((error) => {
+        console.error("Password reset error:", error);
+        Alert.alert("Error", error.message);
+      });
   };
+
+  const handleRegister = () => router.push('/register');
+  const handleBack = () => router.canGoBack() && router.back();
 
   return (
     <SafeAreaView style={styles.container}>
-       <StatusBar barStyle="dark-content" backgroundColor="#F7F8F9" />
-      
+      <StatusBar barStyle="dark-content" backgroundColor="#F7F8F9" />
+
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Feather name="chevron-left" size={28} color="#1C1C1E" />
@@ -124,7 +138,7 @@ const LoginScreen = () => {
         <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
           <Text style={styles.loginButtonText}>Login</Text>
         </TouchableOpacity>
-        
+
         <View style={styles.registerContainer}>
           <Text style={styles.registerText}>Don't have an account? </Text>
           <TouchableOpacity onPress={handleRegister}>
