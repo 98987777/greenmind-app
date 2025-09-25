@@ -104,44 +104,46 @@ const EditProfileScreen = () => {
 
   // 📌 Pick image and upload to Firebase Storage
   const handleChangePicture = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Permission required", "You need to allow gallery access.");
-      return;
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) {
+    Alert.alert("Permission required", "You need to allow gallery access.");
+    return;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.8,
+  });
+
+  if (!result.canceled) {
+    try {
+      setUploading(true);
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const response = await fetch(result.assets[0].uri);
+      const blob = await response.blob();
+
+      // ✅ Store in a folder per user
+      const storageRef = ref(storage, `avatars/${user.uid}/avatar.jpg`);
+      await uploadBytes(storageRef, blob);
+
+      const downloadURL = await getDownloadURL(storageRef);
+      setAvatarUrl(downloadURL);
+
+      await updateDoc(doc(db, "users", user.uid), { avatarUrl: downloadURL });
+
+      Alert.alert("Success", "Profile picture updated!");
+    } catch (err) {
+      console.error("Upload error:", err);
+      Alert.alert("Error", "Failed to upload image.");
+    } finally {
+      setUploading(false);
     }
+  }
+};
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      try {
-        setUploading(true);
-        const user = auth.currentUser;
-        if (!user) return;
-
-        const response = await fetch(result.assets[0].uri);
-        const blob = await response.blob();
-
-        const storageRef = ref(storage, `avatars/${user.uid}.jpg`);
-        await uploadBytes(storageRef, blob);
-        const downloadURL = await getDownloadURL(storageRef);
-
-        setAvatarUrl(downloadURL);
-
-        await updateDoc(doc(db, "users", user.uid), { avatarUrl: downloadURL });
-
-        Alert.alert("Success", "Profile picture updated!");
-      } catch (err) {
-        console.error("Upload error:", err);
-        Alert.alert("Error", "Failed to upload image.");
-      } finally {
-        setUploading(false);
-      }
-    }
-  };
 
   const handleSaveChanges = async () => {
     const user = auth.currentUser;

@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,61 +20,110 @@ import {
 import Feather from 'react-native-vector-icons/Feather';
 import { auth, db } from '../firebaseConfig';
 
-const rewardsData = [
-  { id: '1', title: 'Caramel Frapuccino Regular', points: 2000, company: 'Starbucks', validUntil: '30 December 2024', logo: 'https://i.ibb.co/3s7v7j2/starbucks-logo.png', type: 'voucher' as const, value: 'STARBUCKS-GREEN' },
-  { id: '2', title: 'Discount 30% all variant pizza', points: 1500, company: "Domino's pizza", validUntil: '30 December 2024', logo: 'https://i.ibb.co/bJCq64v/dominos-logo.png', type: 'link' as const, value: 'https://www.dominos.com' },
-  { id: '3', title: '1 Pcs crispy chicken', points: 1000, company: 'KFC', validUntil: '30 December 2024', logo: 'https://i.ibb.co/PQtL9XJ/kfc-logo.png', type: 'voucher' as const, value: 'KFC-REWARD-01' },
-  { id: '4', title: '1 Chicken bucket', points: 5000, company: 'KFC', validUntil: '30 December 2024', logo: 'https://i.ibb.co/PQtL9XJ/kfc-logo.png', type: 'voucher' as const, value: 'KFC-BUCKET-GREEN' },
-];
+type Reward = {
+  id: string;
+  title: string;
+  points: number;
+  company: string;
+  validUntil: string;
+  logo: string;
+  type: 'voucher' | 'link';
+  value: string;
+};
 
-type Reward = (typeof rewardsData)[0];
-type RedeemedItem = { id: string; title: string; date: string; };
+type RedeemedItem = { id: string; title: string; date: string };
 
 const RedeemScreen = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('Voucher');
   const [userPoints, setUserPoints] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  const [availableVouchers, setAvailableVouchers] = useState<Reward[]>([]);
+  const [expiredVouchers, setExpiredVouchers] = useState<Reward[]>([]);
+  const [redeemedVouchers, setRedeemedVouchers] = useState<RedeemedItem[]>([]);
+
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [rewardDetailsModalVisible, setRewardDetailsModalVisible] = useState(false);
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
-  const [redeemedHistory, setRedeemedHistory] = useState<RedeemedItem[]>([]);
 
-  // --- Real-time listener for Eco-Points ---
+  // --- Listen to user points ---
   useEffect(() => {
     let docUnsubscribe: (() => void) | null = null;
-
     const authUnsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        const userDocRef = doc(db, "users", user.uid);
-        docUnsubscribe = onSnapshot(
-          userDocRef,
-          (docSnap) => {
-            console.log("📡 Firestore snapshot received:", docSnap.data());
-            if (docSnap.exists()) {
-              setUserPoints(docSnap.data()?.ecoPoints || 0);
-            } else {
-              console.warn("⚠️ No document found for user:", user.uid);
-            }
-            setLoading(false);
-          },
-          (error) => {
-            console.error("🔥 Firestore onSnapshot error:", error);
-            setLoading(false);
-          }
-        );
+        const userDocRef = doc(db, 'users', user.uid);
+        docUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) setUserPoints(docSnap.data()?.ecoPoints || 0);
+          setLoading(false);
+        });
       } else {
-        console.log("❌ No user logged in, redirecting to login");
         setLoading(false);
         router.replace('/login');
       }
     });
-
     return () => {
       authUnsubscribe();
       if (docUnsubscribe) docUnsubscribe();
     };
-  }, [router]);
+  }, []);
+
+  // --- Fetch vouchers ---
+  useEffect(() => {
+    const fetchVouchers = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'vouchers'));
+        const today = new Date();
+
+        const available: Reward[] = [];
+        const expired: Reward[] = [];
+        const redeemed: RedeemedItem[] = [];
+
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data();
+          const expiryDate = data.expiry?.toDate?.() || null;
+
+          if (data.redeemed && data.assignedTo === auth.currentUser?.uid) {
+            redeemed.push({
+              id: docSnap.id,
+              title: data.description || 'Reward',
+              date: expiryDate?.toLocaleDateString() || 'N/A',
+            });
+          } else if (expiryDate && expiryDate < today) {
+            expired.push({
+              id: docSnap.id,
+              title: data.description || 'Reward',
+              points: 1000,
+              company: 'GreenMind Partner',
+              validUntil: expiryDate.toDateString(),
+              logo: 'https://i.ibb.co/2M0kS7V/eco-logo.png',
+              type: 'voucher',
+              value: data.code,
+            });
+          } else {
+            available.push({
+              id: docSnap.id,
+              title: data.description || 'Reward',
+              points: 1000,
+              company: 'GreenMind Partner',
+              validUntil: expiryDate?.toDateString() || 'N/A',
+              logo: 'https://i.ibb.co/2M0kS7V/eco-logo.png',
+              type: 'voucher',
+              value: data.code,
+            });
+          }
+        });
+
+        setAvailableVouchers(available);
+        setExpiredVouchers(expired);
+        setRedeemedVouchers(redeemed);
+      } catch (err) {
+        console.error('Error fetching vouchers:', err);
+      }
+    };
+
+    fetchVouchers();
+  }, []);
 
   // --- Redeem flow ---
   const handleRedeemPress = (reward: Reward) => {
@@ -88,41 +137,43 @@ const RedeemScreen = () => {
 
   const confirmRedemption = async () => {
     const user = auth.currentUser;
-    if (selectedReward && user) {
-      const newPoints = userPoints - selectedReward.points;
+    if (!selectedReward || !user) return;
 
-      try {
-        const userDocRef = doc(db, "users", user.uid);
-        await updateDoc(userDocRef, { ecoPoints: newPoints });
-        console.log(`✅ Updated ecoPoints to ${newPoints} for user ${user.uid}`);
-      } catch (err) {
-        console.error("❌ Failed to update ecoPoints:", err);
-      }
+    const newPoints = userPoints - selectedReward.points;
 
-      const newHistoryItem: RedeemedItem = {
-        id: `${selectedReward.id}-${Date.now()}`,
-        title: selectedReward.title,
-        date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
-      };
-      setRedeemedHistory([newHistoryItem, ...redeemedHistory]);
-
-      setConfirmModalVisible(false);
-      setRewardDetailsModalVisible(true);
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      await updateDoc(userDocRef, { ecoPoints: newPoints });
+      // mark voucher as redeemed
+      const voucherDocRef = doc(db, 'vouchers', selectedReward.id);
+      await updateDoc(voucherDocRef, { redeemed: true, assignedTo: user.uid });
+    } catch (err) {
+      console.error('Error redeeming voucher:', err);
     }
+
+    setRedeemedVouchers([
+      { id: selectedReward.id, title: selectedReward.title, date: new Date().toLocaleDateString() },
+      ...redeemedVouchers,
+    ]);
+
+    setAvailableVouchers(availableVouchers.filter((v) => v.id !== selectedReward.id));
+
+    setConfirmModalVisible(false);
+    setRewardDetailsModalVisible(true);
   };
 
   const copyToClipboard = async (code: string) => {
     await Clipboard.setStringAsync(code);
-    Alert.alert("Copied!", "Reward code copied to clipboard.");
+    Alert.alert('Copied!', 'Reward code copied to clipboard.');
   };
 
   const openLink = (url: string) => Linking.openURL(url);
+
   const closeDetailsModal = () => {
     setRewardDetailsModalVisible(false);
     setSelectedReward(null);
   };
 
-  // --- Render helpers ---
   const renderRewardDetails = () => {
     if (!selectedReward) return null;
     switch (selectedReward.type) {
@@ -130,7 +181,10 @@ const RedeemScreen = () => {
         return (
           <>
             <Text style={styles.rewardCode}>{selectedReward.value}</Text>
-            <TouchableOpacity style={styles.rewardActionButton} onPress={() => copyToClipboard(selectedReward.value)}>
+            <TouchableOpacity
+              style={styles.rewardActionButton}
+              onPress={() => copyToClipboard(selectedReward.value)}
+            >
               <Feather name="copy" size={16} color="#00C851" style={{ marginRight: 8 }} />
               <Text style={styles.rewardActionButtonText}>Copy Code</Text>
             </TouchableOpacity>
@@ -161,8 +215,6 @@ const RedeemScreen = () => {
         </View>
         <Text style={styles.ticketFinePrint}>Valid at all {item.company} outlet</Text>
       </View>
-      <View style={styles.ticketCutoutLeft} />
-      <View style={styles.ticketCutoutRight} />
     </TouchableOpacity>
   );
 
@@ -191,16 +243,24 @@ const RedeemScreen = () => {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Confirm Modal */}
-      <Modal animationType="fade" transparent={true} visible={confirmModalVisible} onRequestClose={() => setConfirmModalVisible(false)}>
+      <Modal animationType="fade" transparent visible={confirmModalVisible}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Confirm Redemption</Text>
-            <Text style={styles.modalText}>Spend {selectedReward?.points} points for "{selectedReward?.title}"?</Text>
+            <Text style={styles.modalText}>
+              Spend {selectedReward?.points} points for "{selectedReward?.title}"?
+            </Text>
             <View style={styles.modalButtonContainer}>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setConfirmModalVisible(false)}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setConfirmModalVisible(false)}
+              >
                 <Text style={[styles.modalButtonText, { color: '#1C1C1E' }]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.confirmButton]} onPress={confirmRedemption}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={confirmRedemption}
+              >
                 <Text style={styles.modalButtonText}>Confirm</Text>
               </TouchableOpacity>
             </View>
@@ -209,7 +269,7 @@ const RedeemScreen = () => {
       </Modal>
 
       {/* Reward Details Modal */}
-      <Modal animationType="slide" transparent={true} visible={rewardDetailsModalVisible} onRequestClose={closeDetailsModal}>
+      <Modal animationType="slide" transparent visible={rewardDetailsModalVisible}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Feather name="gift" size={40} color="#00C851" style={{ marginBottom: 15 }} />
@@ -230,10 +290,8 @@ const RedeemScreen = () => {
 
       {/* Points Banner */}
       <View style={styles.pointsBanner}>
-        <View>
-          <Text style={styles.bannerPointsLabel}>Points</Text>
-          <Text style={styles.bannerPointsValue}>{userPoints}</Text>
-        </View>
+        <Text style={styles.bannerPointsLabel}>Points</Text>
+        <Text style={styles.bannerPointsValue}>{userPoints}</Text>
       </View>
 
       {/* Tabs */}
@@ -248,11 +306,16 @@ const RedeemScreen = () => {
 
       {/* Lists */}
       {activeTab === 'Voucher' && (
-        <FlatList data={rewardsData} renderItem={renderRewardItem} keyExtractor={(item) => item.id} contentContainerStyle={styles.listContent} />
+        <FlatList
+          data={availableVouchers}
+          renderItem={renderRewardItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+        />
       )}
       {activeTab === 'Redeemed' && (
         <FlatList
-          data={redeemedHistory}
+          data={redeemedVouchers}
           renderItem={renderRedeemedItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
@@ -260,14 +323,19 @@ const RedeemScreen = () => {
         />
       )}
       {activeTab === 'Expired' && (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No expired rewards.</Text>
-        </View>
+        <FlatList
+          data={expiredVouchers}
+          renderItem={renderRewardItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={<Text style={styles.emptyText}>No expired rewards.</Text>}
+        />
       )}
     </SafeAreaView>
   );
 };
 
+// --- Styles (unchanged from previous) ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8F9' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' },
@@ -282,7 +350,7 @@ const styles = StyleSheet.create({
   activeTabText: { color: '#00C851' },
   activeTabIndicator: { height: 3, width: '80%', backgroundColor: '#00C851', borderRadius: 2, marginTop: 8 },
   listContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 100 },
-  ticket: { flexDirection: 'row', backgroundColor: 'white', borderRadius: 16, marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, position: 'relative' },
+  ticket: { flexDirection: 'row', backgroundColor: 'white', borderRadius: 16, marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   logoContainer: { padding: 20, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderStyle: 'dashed', borderRightColor: '#E0E0E0', width: 100 },
   companyLogo: { width: 60, height: 60, resizeMode: 'contain' },
   ticketDetails: { flex: 1, padding: 15 },
@@ -291,8 +359,6 @@ const styles = StyleSheet.create({
   pointsContainer: { backgroundColor: '#FFF3E0', borderRadius: 8, paddingVertical: 4, paddingHorizontal: 8, alignSelf: 'flex-start', marginVertical: 8 },
   pointsText: { color: '#FF9800', fontWeight: 'bold', fontSize: 12 },
   ticketFinePrint: { fontSize: 12, color: '#BDBDBD' },
-  ticketCutoutLeft: { position: 'absolute', left: 90, top: -10, width: 20, height: 20, borderRadius: 10, backgroundColor: '#F7F8F9' },
-  ticketCutoutRight: { position: 'absolute', left: 90, bottom: -10, width: 20, height: 20, borderRadius: 10, backgroundColor: '#F7F8F9' },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
   modalContent: { width: '85%', backgroundColor: 'white', borderRadius: 20, padding: 25, alignItems: 'center' },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
@@ -305,9 +371,8 @@ const styles = StyleSheet.create({
   rewardCode: { fontSize: 20, fontWeight: 'bold', color: '#1C1C1E', backgroundColor: '#F7F8F9', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1, borderColor: '#E8E8E8', marginBottom: 20, textAlign: 'center' },
   rewardActionButton: { flexDirection: 'row', backgroundColor: 'white', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 25, alignItems: 'center', borderWidth: 1, borderColor: '#00C851' },
   rewardActionButtonText: { color: '#00C851', fontWeight: 'bold', fontSize: 16 },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 50 },
-  emptyText: { fontSize: 16, color: '#8A8A8E' },
   modalFullWidthButton: { width: '100%', paddingVertical: 14, borderRadius: 30, alignItems: 'center', backgroundColor: '#00C851', marginTop: 20 },
+  emptyText: { fontSize: 16, color: '#8A8A8E', textAlign: 'center', marginTop: 50 },
 });
 
 export default RedeemScreen;

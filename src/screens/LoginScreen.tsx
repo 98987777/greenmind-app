@@ -1,6 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -13,13 +14,10 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { auth } from '../firebaseConfig';
+import { auth, db } from '../firebaseConfig';
 
 const createResponsiveStyles = (width: number) => {
-  const fontScale = (size: number) => {
-    const scaleFactor = Math.min(width / 375, 1.2);
-    return size * scaleFactor;
-  };
+  const fontScale = (size: number) => Math.min(width / 375, 1.2) * size;
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F7F8F9' },
     header: { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
@@ -44,25 +42,49 @@ const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+
   const router = useRouter();
   const { width } = useWindowDimensions();
   const styles = createResponsiveStyles(width);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("Missing Information", "Please enter both email and password.");
       return;
     }
 
-    signInWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        console.log('Logged in user:', userCredential.user.uid);
-        router.replace('/(tabs)/dashboard');
-      })
-      .catch((error) => {
-        Alert.alert("Login Failed", "Invalid email or password. Please try again.");
-        console.error("Firebase Login Error:", error.message);
-      });
+    try {
+      // Sign in
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+
+      // Get Firestore user
+      const docRef = doc(db, "users", uid);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        Alert.alert("Error", "User data not found in database.");
+        return;
+      }
+
+      const userData = docSnap.data();
+      const userRole = userData.role?.toLowerCase();
+
+      console.log("Firebase role:", userRole);
+
+      // Navigate based on role in Firestore
+      if (userRole === "admin") {
+        router.push("/admin-home"); // Admin home
+      } else if (userRole === "user") {
+        router.push("/(tabs)/dashboard"); // User dashboard
+      } else {
+        Alert.alert("Access Denied", "Unknown role in database.");
+      }
+
+    } catch (error: any) {
+      console.error("Login Error:", error.message);
+      Alert.alert("Login Failed", "Invalid email or password. Please try again.");
+    }
   };
 
   const handleForgotPassword = () => {
@@ -72,19 +94,14 @@ const LoginScreen = () => {
     }
 
     sendPasswordResetEmail(auth, email)
-      .then(() => {
-        Alert.alert(
-          "Email Sent",
-          "A password reset email has been sent to your email address. Please check your inbox."
-        );
-      })
+      .then(() => Alert.alert("Email Sent", "Check your inbox for password reset."))
       .catch((error) => {
         console.error("Password reset error:", error);
         Alert.alert("Error", error.message);
       });
   };
 
-  const handleRegister = () => router.push('/register');
+  const handleRegister = () => router.push("/register");
   const handleBack = () => router.canGoBack() && router.back();
 
   return (

@@ -46,7 +46,7 @@ const WelcomeScreen: React.FC = () => {
     if (currentScreenIndex < onboardingScreens.length - 1) {
       setCurrentScreenIndex(currentScreenIndex + 1);
     } else {
-      router.push('/login');
+      router.push('/role');
     }
   };
   
