@@ -20,6 +20,7 @@ import {
 import Feather from 'react-native-vector-icons/Feather';
 import { auth, db } from '../firebaseConfig';
 
+
 type Reward = {
   id: string;
   title: string;
@@ -96,7 +97,7 @@ const RedeemScreen = () => {
               points: 1000,
               company: 'GreenMind Partner',
               validUntil: expiryDate.toDateString(),
-              logo: 'https://i.ibb.co/2M0kS7V/eco-logo.png',
+              logo: 'https://as1.ftcdn.net/jpg/04/61/05/76/1000_F_461057613_o59XT4r4bg1cI6vFReT5cWzHL4uBn3qN.jpg',
               type: 'voucher',
               value: data.code,
             });
@@ -107,7 +108,7 @@ const RedeemScreen = () => {
               points: 1000,
               company: 'GreenMind Partner',
               validUntil: expiryDate?.toDateString() || 'N/A',
-              logo: 'https://i.ibb.co/2M0kS7V/eco-logo.png',
+              logo: 'https://as1.ftcdn.net/jpg/04/61/05/76/1000_F_461057613_o59XT4r4bg1cI6vFReT5cWzHL4uBn3qN.jpg',
               type: 'voucher',
               value: data.code,
             });
@@ -144,7 +145,6 @@ const RedeemScreen = () => {
     try {
       const userDocRef = doc(db, 'users', user.uid);
       await updateDoc(userDocRef, { ecoPoints: newPoints });
-      // mark voucher as redeemed
       const voucherDocRef = doc(db, 'vouchers', selectedReward.id);
       await updateDoc(voucherDocRef, { redeemed: true, assignedTo: user.uid });
     } catch (err) {
@@ -206,6 +206,12 @@ const RedeemScreen = () => {
     <TouchableOpacity style={styles.ticket} onPress={() => handleRedeemPress(item)}>
       <View style={styles.logoContainer}>
         <Image source={{ uri: item.logo }} style={styles.companyLogo} />
+        <Feather
+          name={item.type === 'voucher' ? "gift" : "external-link"}
+          size={20}
+          color="#00C851"
+          style={styles.logoIconOverlay}
+        />
       </View>
       <View style={styles.ticketDetails}>
         <Text style={styles.ticketTitle}>{item.title}</Text>
@@ -335,7 +341,7 @@ const RedeemScreen = () => {
   );
 };
 
-// --- Styles (unchanged from previous) ---
+// --- Styles ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8F9' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' },
@@ -353,6 +359,7 @@ const styles = StyleSheet.create({
   ticket: { flexDirection: 'row', backgroundColor: 'white', borderRadius: 16, marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   logoContainer: { padding: 20, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderStyle: 'dashed', borderRightColor: '#E0E0E0', width: 100 },
   companyLogo: { width: 60, height: 60, resizeMode: 'contain' },
+  logoIconOverlay: { position: 'absolute', bottom: 5, right: 5, backgroundColor: 'white', borderRadius: 10, padding: 2 },
   ticketDetails: { flex: 1, padding: 15 },
   ticketTitle: { fontSize: 16, fontWeight: 'bold', color: '#1C1C1E' },
   ticketSubtitle: { fontSize: 12, color: '#8A8A8E', marginVertical: 4 },
